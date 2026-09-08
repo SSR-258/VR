@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>CSI VR Training Simulator - Meta Quest 3 / WebXR Forensic Investigation</title>
+  
+  <!-- A-Frame VR Framework 1.6.0 -->
+  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+
+  <style>
+    /* Sleek Modern Dark Overlay UI Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      background-color: #050811;
+      color: #e2e8f0;
+    }
+
+    /* 2D Overlay HUD & Desktop Controls UI */
+    #desktop-hud {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 1000;
+      background: rgba(10, 16, 30, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: #f1f5f9;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      max-width: 320px;
+      pointer-events: auto;
+      transition: all 0.3s ease;
+    }
+
+    #desktop-hud h2 {
+      margin: 0 0 6px 0;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #desktop-hud h2::before {
+      content: '';
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      background-color: #0ea5e9;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #0ea5e9;
+    }
+
+    #desktop-hud p {
+      margin: 4px 0;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+
+    .badge-status {
+      display: inline-block;
+      background: rgba(14, 165, 233, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    /* Floating Tool Bar (2D Desktop Fallback Controls) */
+    #desktop-toolbar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.9);
+      padding: 8px 16px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      pointer-events: auto;
+    }
+
+    .hud-btn {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .hud-btn:hover {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+    }
+
+    .hud-btn.active {
+      background: #0ea5e9;
+      color: #ffffff;
+      border-color: #7dd3fc;
+      box-shadow: 0 0 15px rgba(14, 165, 233, 0.6);
+    }
+
+    /* Modal Inspector Overlay (for Desktop fallback viewing) */
+    #inspector-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(5, 8, 17, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 2000;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .inspector-card {
+      background: #0f172a;
+      border: 1px solid #0369a1;
+      box-shadow: 0 0 40px rgba(14, 165, 233, 0.25);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 520px;
+      padding: 24px;
+      position: relative;
+    }
+
+    .inspector-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    .inspector-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #38bdf8;
+      margin: 0;
+    }
+
+    .evidence-tag {
+      background: #f59e0b;
+      color: #000;
+      font-weight: 800;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .inspector-desc {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #cbd5e1;
+      margin-bottom: 20px;
+    }
+
+    .forensic-note {
+      background: rgba(30, 41, 59, 0.7);
+      border-left: 4px solid #0ea5e9;
+      padding: 10px 14px;
+      border-radius: 0 8px 8px 0;
+      font-size: 13px;
+      color: #93c5fd;
+      margin-bottom: 20px;
+    }
+
+    .action-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      background: #0284c7;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #cbd5e1;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Crosshair for Desktop navigation */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      margin-left: -4px;
+      margin-top: -4px;
+      background: rgba(56, 189, 248, 0.8);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 999;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
+      transition: transform 0.1s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Crosshair dot for Desktop aim -->
+  <div id="crosshair"></div>
+
+  <!-- 2D HUD Info Overlay -->
+  <div id="desktop-hud">
+    <h2>CSI Case #104</h2>
+    <p><strong>Location:</strong> Apartment Room 3B</p>
+    <p><strong>Objective:</strong> Locate & analyze 7 forensic evidence clues. Uncover if the crime scene was staged.</p>
+    <div id="hud-status" class="badge-status">Evidence Collected: 0 / 7</div>
+  </div>
+
+  <!-- Desktop Controls Toolbar -->
+  <div id="desktop-toolbar">
+    <button class="hud-btn" id="btn-toggle-uv">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+      UV Flashlight (F)
+    </button>
+    <button class="hud-btn" id="btn-toggle-tablet">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      CSI Tablet (Tab)
+    </button>
+    <button class="hud-btn" id="btn-reset">
+      Reset Case
+    </button>
+  </div>
+
+  <!-- 2D Inspector Dialog Overlay (Fallback / Responsive view) -->
+  <div id="inspector-overlay">
+    <div class="inspector-card">
+      <div class="inspector-header">
+        <h3 class="inspector-title" id="insp-title">Evidence Name</h3>
+        <span class="evidence-tag" id="insp-tag">E1</span>
+      </div>
+      <p class="inspector-desc" id="insp-desc">Evidence analysis text details...</p>
+      <div class="forensic-note" id="insp-note">
+        <strong>Forensic Analysis:</strong> <span id="insp-forensic">Details here...</span>
+      </div>
+      <div class="action-row">
+        <button class="btn-secondary" id="insp-btn-close">Close</button>
+        <button class="btn-primary" id="insp-btn-collect">Collect Evidence</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- A-FRAME 3D SCENE                                                  -->
+  <!-- ================================================================= -->
+  <a-scene 
+    webxr="optionalFeatures: hit-test, local-floor; referenceSpaceType: local-floor"
+    renderer="antialias: true; colorManagement: true; exposure: 1.1; highRefreshRate: true"
+    shadow="type: pcfsoft"
+    background="color: #050811"
+    csi-game-master>
+
+    <!-- Asset Management & Canvas Procedural Textures -->
+    <a-assets>
+      <!-- Generated Canvas Textures inserted by JS below -->
+    </a-assets>
+
+    <!-- SCENE LIGHTING -->
+    <a-entity light="type: ambient; color: #64748b; intensity: 0.65"></a-entity>
+    
+    <!-- Ceiling Lamp Light -->
+    <a-entity light="type: point; color: #fffbeb; intensity: 0.9; distance: 12; decay: 1.5; castShadow: true" position="0 3.2 0"></a-entity>
+
+    <!-- Desk Spotlight (adds dramatic crime scene mood) -->
+    <a-entity light="type: spot; color: #fde68a; intensity: 1.2; angle: 45; penumbra: 0.4; distance: 8; castShadow: true" position="-1.8 2.8 -2.2" rotation="-65 -30 0"></a-entity>
+
+    <!-- UV Flashlight Light Source (dynamic spotlight attached to user/flashlight) -->
+    <a-entity id="uv-light-entity" light="type: spot; color: #a855f7; intensity: 0; angle: 35; penumbra: 0.2; distance: 7" position="0 1.5 0"></a-entity>
+
+    <!-- PLAYER RIG / CAMERA CONTROLS -->
+    <a-entity id="rig" position="0 0 2.2" rotation="0 0 0" movement-controls-quest>
+      
+      <!-- Head / Camera -->
+      <a-camera id="head-camera" position="0 1.6 0" look-controls="pointerLockEnabled: false" wasd-controls="acceleration: 12">
+        
+        <!-- Desktop Cursor Raycaster -->
+        <a-entity id="desktop-cursor" 
+                  cursor="rayOrigin: mouse" 
+                  raycaster="objects: .interactive, .evidence; far: 5">
+        </a-entity>
+
+        <!-- UV Flashlight mesh attached in front of camera view for desktop/VR camera alignment -->
+        <a-entity id="camera-uv-mesh" position="0.3 -0.25 -0.5" rotation="0 0 0" visible="false">
+          <a-cylinder radius="0.025" height="0.18" color="#1e293b" rotation="90 0 0"></a-cylinder>
+          <a-cone radius-bottom="0.035" radius-top="0.025" height="0.06" color="#3b82f6" position="0 0 -0.1" rotation="-90 0 0"></a-cone>
+          <a-cylinder id="uv-beam-cone" radius-bottom="0.4" radius-top="0.03" height="3" material="color: #c084fc; opacity: 0.25; transparent: true; shader: flat" position="0 0 -1.5" rotation="-90 0 0" visible="false"></a-cylinder>
+        </a-entity>
+
+      </a-camera>
+
+      <!-- QUEST 3 / 3S CONTROLLERS -->
+      <!-- Left Controller (Navigation / CSI Tablet) -->
+      <a-entity id="left-controller" 
+                oculus-touch-controls="hand: left" 
+                laser-controls="hand: left" 
+                raycaster="objects: .interactive, .evidence, .ui-btn; far: 5; showLine: true; lineMaterial: color: #38bdf8">
+      </a-entity>
+
+      <!-- Right Controller (Interaction / UV Scanner Tool) -->
+      <a-entity id="right-controller" 
+                oculus-touch-controls="hand: right" 
+                laser-controls="hand: right" 
+                raycaster="objects: .interactive, .evidence, .ui-btn; far: 5; showLine: true; lineMaterial: color: #38bdf8">
+      </a-entity>
+
+    </a-entity>
+
+
+    <!-- ================================================================= -->
+    <!-- 3D CRIME SCENE ARCHITECTURE & ROOM ENVIRONMENT                   -->
+    <!-- ================================================================= -->
+    <a-entity id="crime-scene-room">
+      
+      <!-- Floor -->
+      <a-plane id="room-floor" position="0 0 0" rotation="-90 0 0" width="7" height="7" material="src: #tex-floor; repeat: 4 4; roughness: 0.5" receive-shadow></a-plane>
+      
+      <!-- Ceiling -->
+      <a-plane position="0 3.5 0" rotation="90 0 0" width="7" height="7" color="#1e293b" material="roughness: 0.9"></a-plane>
+
+      <!-- Walls -->
+      <!-- Back Wall (North) -->
+      <a-plane position="0 1.75 -3.5" rotation="0 0 0" width="7" height="3.5" material="src: #tex-wall; repeat: 6 3; roughness: 0.8"></a-plane>
+      <!-- Front Wall (South) with Entrance Door -->
+      <a-plane position="-2 1.75 3.5" rotation="0 180 0" width="3" height="3.5" material="src: #tex-wall; repeat: 3 3; roughness: 0.8"></a-plane>
+      <a-plane position="2 1.75 3.5" rotation="0 180 0" width="3" height="3.5" material="src: #tex-wall; repeat: 3 3; roughness: 0.8"></a-plane>
+      <a-plane position="0 3.0 3.5" rotation="0 180 0" width="1" height="1" material="src: #tex-wall; repeat: 1 1; roughness: 0.8"></a-plane>
+      <!-- Entrance Door -->
+      <a-box id="entry-door" position="0 1.1 3.48" width="0.95" height="2.2" depth="0.08" color="#334155" material="roughness: 0.6">
+        <a-sphere position="0.4 0 0.05" radius="0.04" color="#fbbf24" material="metalness: 0.9; roughness: 0.2"></a-sphere>
+      </a-box>
+
+      <!-- Left Wall (West) with Window -->
+      <a-plane position="-3.5 1.75 0" rotation="0 90 0" width="7" height="3.5" material="src: #tex-wall; repeat: 6 3; roughness: 0.8"></a-plane>
+      <!-- Right Wall (East) -->
+      <a-plane position="3.5 1.75 0" rotation="0 -90 0" width="7" height="3.5" material="src: #tex-wall; repeat: 6 3; roughness: 0.8"></a-plane>
+
+      <!-- Baseboards / Skirting Boards -->
+      <a-box position="0 0.08 -3.46" width="7" height="0.16" depth="0.04" color="#0f172a"></a-box>
+      <a-box position="-3.46 0.08 0" rotation="0 90 0" width="7" height="0.16" depth="0.04" color="#0f172a"></a-box>
+      <a-box position="3.46 0.08 0" rotation="0 90 0" width="7" height="0.16" depth="0.04" color="#0f172a"></a-box>
+
+      <!-- Window Frame & Shattered Glass Pane (West Wall) -->
+      <a-entity id="window-structure" position="-3.45 1.8 -1.2" rotation="0 90 0">
+        <!-- Frame Outer -->
+        <a-box width="1.6" height="1.8" depth="0.08" color="#1e293b"></a-box>
+        <!-- Glass Intact Pane (Top) -->
+        <a-plane position="0 0.45 0.01" width="1.4" height="0.75" material="color: #94a3b8; opacity: 0.35; transparent: true; roughness: 0.1"></a-plane>
+        <!-- Broken Glass Frame Pane (Bottom) -->
+        <a-plane position="0 -0.45 0.01" width="1.4" height="0.75" material="color: #cbd5e1; opacity: 0.25; transparent: true; roughness: 0.1"></a-plane>
+        
+        <!-- Stress Cracks Pattern on Window Glass (Forensic clue: stress lines radiate outward) -->
+        <a-plane position="0 -0.45 0.02" width="1.3" height="0.7" material="src: #tex-glass-cracks; transparent: true; opacity: 0.9"></a-plane>
+      </a-entity>
+
+      <!-- Rug in Center of Room -->
+      <a-plane position="0 0.01 -0.5" rotation="-90 0 0" width="2.8" height="2.2" material="src: #tex-rug; roughness: 0.95"></a-plane>
+
+    </a-entity>
+
+
+    <!-- ================================================================= -->
+    <!-- FURNITURE & DECORATION                                            -->
+    <!-- ================================================================= -->
+    <a-entity id="furniture-group">
+      
+      <!-- Executive Desk (North-West corner) -->
+      <a-entity id="desk" position="-2.1 0 -2.4">
+        <!-- Desk Top -->
+        <a-box position="0 0.75 0" width="1.8" height="0.08" depth="0.9" color="#1e1b18" material="roughness: 0.4" cast-shadow></a-box>
+        <!-- Desk Legs -->
+        <a-box position="-0.8 0.365 -0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
+        <a-box position="0.8 0.365 -0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
+        <a-box position="-0.8 0.365 0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
+        <a-box position="0.8 0.365 0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
+        <!-- Desk Drawer Unit -->
+        <a-box position="0.55 0.38 0" width="0.45" height="0.65" depth="0.8" color="#27272a"></a-box>
+        
+        <!-- Laptop / Monitor on Desk -->
+        <a-box position="-0.3 0.81 -0.1" width="0.38" height="0.02" depth="0.26" color="#334155"></a-box>
+        <a-box position="-0.3 0.95 -0.22" width="0.38" height="0.25" depth="0.02" color="#0f172a" rotation="-15 0 0"></a-box>
+      </a-entity>
+
+      <!-- Desk Chair (Overturned / Pushed back) -->
+      <a-entity id="office-chair" position="-2.1 0 -1.3" rotation="0 35 0">
+        <a-cylinder position="0 0.25 0" radius="0.28" height="0.05" color="#0f172a"></a-cylinder>
+        <a-box position="0 0.5 0" width="0.48" height="0.08" depth="0.48" color="#0284c7"></a-box>
+        <a-box position="0 0.85 -0.2" width="0.46" height="0.6" depth="0.08" color="#0284c7"></a-box>
+      </a-entity>
+
+      <!-- Leather Sofa (East Wall) -->
+      <a-entity id="sofa" position="2.3 0 -0.8" rotation="0 -90 0">
+        <!-- Seat Base -->
+        <a-box position="0 0.25 0" width="1.8" height="0.3" depth="0.8" color="#332211" material="roughness: 0.6"></a-box>
+        <!-- Cushions -->
+        <a-box position="-0.42 0.43 0.05" width="0.8" height="0.16" depth="0.65" color="#442a15"></a-box>
+        <a-box position="0.42 0.43 0.05" width="0.8" height="0.16" depth="0.65" color="#442a15"></a-box>
+        <!-- Backrest -->
+        <a-box position="0 0.7 -0.32" width="1.8" height="0.6" depth="0.2" color="#2b1a0a"></a-box>
+        <!-- Armrests -->
+        <a-box position="-0.85 0.55 0" width="0.2" height="0.4" depth="0.8" color="#2b1a0a"></a-box>
+        <a-box position="0.85 0.55 0" width="0.2" height="0.4" depth="0.8" color="#2b1a0a"></a-box>
+      </a-entity>
+
+      <!-- Bookshelf (North-East Corner) -->
+      <a-entity id="bookshelf" position="2.4 0 -3.0" rotation="0 0 0">
+        <a-box position="0 1.1 0" width="1.2" height="2.2" depth="0.38" color="#1e1b18"></a-box>
+        <!-- Shelves -->
+        <a-box position="0 0.55 0" width="1.14" height="0.04" depth="0.34" color="#27272a"></a-box>
+        <a-box position="0 1.05 0" width="1.14" height="0.04" depth="0.34" color="#27272a"></a-box>
+        <a-box position="0 1.55 0" width="1.14" height="0.04" depth="0.34" color="#27272a"></a-box>
+        <!-- Books -->
+        <a-box position="-0.35 1.25 0" width="0.15" height="0.3" depth="0.22" color="#991b1b"></a-box>
+        <a-box position="-0.15 1.23 0" width="0.12" height="0.26" depth="0.22" color="#1e3a8a"></a-box>
+        <a-box position="0.1 1.26 0" width="0.22" height="0.32" depth="0.22" color="#065f46"></a-box>
+      </a-entity>
+
+      <!-- Framed Painting & Wall Safe (North Wall) -->
+      <!-- Painting Frame (Can be clicked to tilt/slide revealing wall safe!) -->
+      <a-entity id="painting-safe-assembly" position="0.6 1.9 -3.44">
+        <!-- Electronic Wall Safe hidden behind frame -->
+        <a-box id="wall-safe-box" position="0 0 -0.02" width="0.55" height="0.55" depth="0.12" color="#1e293b" class="interactive">
+          <!-- Safe Door (Ajar / Opened) -->
+          <a-box id="safe-door" position="0.22 0 0.08" rotation="0 65 0" width="0.26" height="0.5" depth="0.04" color="#334155">
+            <a-cylinder position="-0.08 0 0.03" radius="0.05" height="0.02" color="#f59e0b" rotation="90 0 0"></a-cylinder>
+          </a-box>
+          <!-- Empty Safe Interior dark cavity -->
+          <a-box position="0 0 0.02" width="0.48" height="0.48" depth="0.08" color="#020617"></a-box>
+        </a-box>
+
+        <!-- Framed Painting (Tilted aside revealing safe) -->
+        <a-entity id="framed-painting" position="0.35 0 0.04" rotation="0 0 18" class="interactive">
+          <a-box width="0.75" height="0.75" depth="0.04" color="#451a03"></a-box>
+          <a-plane position="0 0 0.025" width="0.68" height="0.68" material="src: #tex-art; roughness: 0.3"></a-plane>
+        </a-entity>
+      </a-entity>
+
+      <!-- Tutorial / Onboarding Wall Board (South Wall near entrance) -->
+      <a-entity position="-1.8 1.8 3.42" rotation="0 0 0">
+        <a-plane width="1.6" height="1.4" color="#0f172a" material="roughness: 0.5; border: 2px solid #38bdf8"></a-plane>
+        <a-text value="CSI INVESTIGATION PROTOCOL" align="center" position="0 0.52 0.02" scale="0.4 0.4 0.4" color="#38bdf8" font="kelsonsans"></a-text>
+        <a-text value="1. Explore the room for forensic clues.\n2. Point Raycaster / Mouse & Click evidence.\n3. Examine 3D items closely in Inspector.\n4. Toggle UV Flashlight (F key / Controller) to discover latent prints & footprints.\n5. Log all 7 items to solve Case #104." 
+                align="left" position="-0.7 0.05 0.02" scale="0.26 0.26 0.26" color="#e2e8f0" line-height="58"></a-text>
+        <a-plane position="0 -0.5 0.01" width="1.5" height="0.02" color="#0ea5e9"></a-plane>
+      </a-entity>
+
+    </a-entity>
+
+
+    <!-- ================================================================= -->
+    <!-- FORENSIC EVIDENCE ITEMS & MARKERS (E1 - E7)                       -->
+    <!-- ================================================================= -->
+    <a-entity id="evidence-group">
+
+      <!-- E1: KNOCKED-OVER BRASS DESK LAMP -->
+      <a-entity id="evidence-e1" position="-2.2 0.79 -2.0" rotation="80 -45 0" class="evidence" data-id="E1" evidence-item>
+        <!-- Brass Lamp Mesh -->
+        <a-cylinder radius="0.12" height="0.04" color="#d97706" material="metalness: 0.8; roughness: 0.2"></a-cylinder>
+        <a-cylinder position="0 0.25 0" radius="0.025" height="0.5" color="#b45309" material="metalness: 0.8; roughness: 0.2"></a-cylinder>
+        <a-cone position="0 0.5 0" radius-bottom="0.18" radius-top="0.08" height="0.22" color="#78350f" material="roughness: 0.4"></a-cone>
+
+        <!-- 3D Yellow Marker Tag Floating Above -->
+        <a-entity marker-tag="id: E1" position="0 0.7 0" rotation="-80 45 0"></a-entity>
+      </a-entity>
+
+      <!-- E2: LATENT FINGERPRINT (on Lamp Base) -->
+      <!-- Revealed clearly under close inspection or UV light -->
+      <a-entity id="evidence-e2" position="-2.22 0.81 -1.95" rotation="-10 45 0" class="evidence uv-target" data-id="E2" evidence-item>
+        <a-plane width="0.14" height="0.14" material="src: #tex-fingerprint; transparent: true; opacity: 0.85; emissive: #000000"></a-plane>
+        <a-entity marker-tag="id: E2" position="0 0.3 0" rotation="10 -45 0"></a-entity>
+      </a-entity>
+
+      <!-- E3: GLASS SHARDS OUTSIDE FRACTURE (Near window on floor) -->
+      <a-entity id="evidence-e3" position="-3.1 0.01 -1.2" rotation="-90 0 30" class="evidence uv-target" data-id="E3" evidence-item>
+        <!-- Glass shards cluster -->
+        <a-plane width="0.6" height="0.6" material="src: #tex-glass-cracks; transparent: true; opacity: 0.9; emissive: #000000"></a-plane>
+        <a-cone position="-0.1 0.03 0.1" radius-bottom="0.08" radius-top="0.01" height="0.02" color="#cbd5e1" material="opacity: 0.6; transparent: true"></a-cone>
+        <a-cone position="0.15 0.03 -0.05" radius-bottom="0.1" radius-top="0.01" height="0.02" color="#e2e8f0" material="opacity: 0.7; transparent: true"></a-cone>
+        
+        <a-entity marker-tag="id: E3" position="0 0.5 0" rotation="90 0 -30"></a-entity>
+      </a-entity>
+
+      <!-- E4: LATENT BOOT IMPRESSION / FOOTPRINT (Floor near desk) -->
+      <a-entity id="evidence-e4" position="-1.4 0.015 -1.5" rotation="-90 0 -20" class="evidence uv-target" data-id="E4" evidence-item>
+        <a-plane width="0.22" height="0.45" material="src: #tex-footprint; transparent: true; opacity: 0.75; emissive: #000000"></a-plane>
+        <a-entity marker-tag="id: E4" position="0 0.5 0" rotation="90 0 20"></a-entity>
+      </a-entity>
+
+      <!-- E5: TAMPERED ELECTRONIC SAFE (Inside wall cavity) -->
+      <a-entity id="evidence-e5" position="0.6 1.9 -3.38" class="evidence" data-id="E5" evidence-item>
+        <a-box width="0.4" height="0.4" depth="0.05" visible="false"></a-box>
+        <a-entity marker-tag="id: E5" position="0 0.45 0.1"></a-entity>
+      </a-entity>
+
+      <!-- E6: TORN LEDGER PAPER FRAGMENT (Floor under desk edge) -->
+      <a-entity id="evidence-e6" position="-1.65 0.01 -2.7" rotation="-90 0 15" class="evidence" data-id="E6" evidence-item>
+        <a-plane width="0.2" height="0.28" material="src: #tex-paper-fragment; roughness: 0.9"></a-plane>
+        <a-entity marker-tag="id: E6" position="0 0.4 0" rotation="90 0 -15"></a-entity>
+      </a-entity>
+
+      <!-- E7: ENCRYPTED USB FLASH DRIVE (Hidden under Sofa edge) -->
+      <a-entity id="evidence-e7" position="1.8 0.04 -0.4" rotation="0 45 0" class="evidence" data-id="E7" evidence-item>
+        <!-- USB Stick Geometry -->
+        <a-box width="0.04" height="0.015" depth="0.1" color="#0f172a" material="metalness: 0.5; roughness: 0.3"></a-box>
+        <a-box position="0 0 -0.06" width="0.028" height="0.008" depth="0.03" color="#94a3b8" material="metalness: 0.9"></a-box>
+        <a-cylinder position="0 0.01 0.02" radius="0.005" height="0.005" color="#0ea5e9" material="emissive: #0ea5e9; emissiveIntensity: 0.8"></a-cylinder>
+
+        <a-entity marker-tag="id: E7" position="0 0.35 0" rotation="0 -45 0"></a-entity>
+      </a-entity>
+
+    </a-entity>
+
+
+    <!-- ================================================================= -->
+    <!-- VR FLOATING CSI TABLET HUD / CASE CONCLUSION PANEL                -->
+    <!-- ================================================================= -->
+    <a-entity id="csi-vr-tablet" position="0 1.4 -1.2" rotation="-15 0 0" visible="true">
+      
+      <!-- Tablet Body -->
+      <a-plane width="1.2" height="0.8" color="#0b1329" material="roughness: 0.3; border: 2px solid #0369a1"></a-plane>
+      <a-plane position="0 0 -0.01" width="1.24" height="0.84" color="#0284c7"></a-plane>
+
+      <!-- Header Title -->
+      <a-text value="FORENSIC INVESTIGATION TABLET" align="center" position="0 0.33 0.01" scale="0.32 0.32 0.32" color="#38bdf8" font="kelsonsans"></a-text>
+
+      <!-- Progress Line -->
+      <a-plane id="tablet-progress-bar" position="-0.4 0.26 0.01" width="0.01" height="0.02" color="#0ea5e9"></a-plane>
+      <a-plane position="0 0.26 0.005" width="0.8" height="0.02" color="#1e293b"></a-plane>
+
+      <!-- Evidence Status Text -->
+      <a-text id="tablet-status-text" value="Evidence Collected: 0 / 7" align="center" position="0 0.2 0.01" scale="0.25 0.25 0.25" color="#f1f5f9"></a-text>
+
+      <!-- Content Area / Evidence Log List -->
+      <a-entity id="tablet-log-group" position="0 -0.02 0.01">
+        <a-text id="tablet-log-text" 
+                value="[E1] Knocked Lamp - Not Collected\n[E2] Latent Print - Not Collected\n[E3] Window Glass - Not Collected\n[E4] Boot Print - Not Collected\n[E5] Safe Cavity - Not Collected\n[E6] Ledger Shred - Not Collected\n[E7] Encrypted USB - Not Collected" 
+                align="left" position="-0.48 0.12 0" scale="0.2 0.2 0.2" color="#94a3b8" line-height="52">
+        </a-text>
+      </a-entity>
+
+      <!-- Interactive Deduction Button: Staged Scene vs External Burglary -->
+      <a-entity id="btn-submit-deduction" position="0 -0.28 0.02" class="ui-btn interactive">
+        <a-plane width="0.7" height="0.1" color="#0284c7" material="roughness: 0.4"></a-plane>
+        <a-text value="SOLVE CASE DEDUCTION" align="center" position="0 0 0.01" scale="0.25 0.25 0.25" color="#ffffff" font="kelsonsans"></a-text>
+      </a-entity>
+
+    </a-entity>
+
+  </a-scene>
+
+  <!-- ================================================================= -->
+  <!-- JAVASCRIPT LOGIC, COMPONENTS & PROCEDURAL TEXTURES               -->
+  <!-- ================================================================= -->
+  <script>
+    /* ----------------------------------------------------------------- */
+    /* 1. PROCEDURAL CANVAS TEXTURE GENERATOR                            */
+    /* ----------------------------------------------------------------- */
+    function createProceduralTextures() {
+      const assets = document.querySelector('a-assets');
+
+      // Helper function to turn canvas into A-Frame img asset
+      function addCanvasAsset(id, width, height, drawFn) {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        drawFn(ctx, width, height);
+        
+        const img = document.createElement('img');
+        img.id = id;
+        img.src = canvas.toDataURL('image/png');
+        assets.appendChild(img);
+      }
+
+      // A. Wood Floor Planks
+      addCanvasAsset('tex-floor', 512, 512, (ctx, w, h) => {
+        ctx.fillStyle = '#2d1f14';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#18100a';
+        ctx.lineWidth = 4;
+        const plankH = h / 8;
+        for (let i = 0; i <= 8; i++) {
+          ctx.beginPath();
+          ctx.moveTo(0, i * plankH);
+          ctx.lineTo(w, i * plankH);
+          ctx.stroke();
+        }
+        // Wood grain noise
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        for (let j = 0; j < 300; j++) {
+          ctx.fillRect(Math.random() * w, Math.random() * h, Math.random() * 80, 2);
+        }
+      });
+
+      // B. Modern Wallpaper Pattern
+      addCanvasAsset('tex-wall', 512, 512, (ctx, w, h) => {
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+        ctx.lineWidth = 2;
+        const step = 64;
+        for (let x = 0; x < w; x += step) {
+          for (let y = 0; y < h; y += step) {
+            ctx.strokeRect(x + 8, y + 8, step - 16, step - 16);
+          }
+        }
+      });
+
+      // C. Carpet Rug Texture
+      addCanvasAsset('tex-rug', 512, 512, (ctx, w, h) => {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 12;
+        ctx.strokeRect(20, 20, w - 40, h - 40);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(40, 40, w - 80, h - 80);
+      });
+
+      // D. Framed Wall Painting Art
+      addCanvasAsset('tex-art', 512, 512, (ctx, w, h) => {
+        const grad = ctx.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(0.5, '#0369a1');
+        grad.addColorStop(1, '#f59e0b');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('ABSTRACT FORENSICS', w / 2, h / 2);
+      });
+
+      // E. Latent Fingerprint Texture
+      addCanvasAsset('tex-fingerprint', 256, 256, (ctx, w, h) => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        const cx = w / 2, cy = h / 2;
+        for (let r = 10; r < 90; r += 7) {
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, r, r * 1.3, Math.PI / 6, 0, Math.PI * 1.8);
+          ctx.stroke();
+        }
+      });
+
+      // F. Boot Tread Footprint Pattern
+      addCanvasAsset('tex-footprint', 256, 512, (ctx, w, h) => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#ffffff';
+        // Heel
+        ctx.fillRect(60, 340, 136, 120);
+        // Sole
+        ctx.beginPath();
+        ctx.ellipse(128, 180, 80, 140, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Sole tread grooves
+        ctx.fillStyle = '#000000';
+        for (let y = 80; y < 280; y += 30) {
+          ctx.fillRect(60, y, 136, 10);
+        }
+      });
+
+      // G. Glass Fracture Stress Cracks (Outward Radial Lines)
+      addCanvasAsset('tex-glass-cracks', 512, 512, (ctx, w, h) => {
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        const cx = w / 2, cy = h / 2;
+        // Radial crack lines pointing OUTWARD (key forensic clue)
+        for (let i = 0; i < 16; i++) {
+          const angle = (i / 16) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(angle) * 240, cy + Math.sin(angle) * 240);
+          ctx.stroke();
+        }
+        // Concentric stress rings
+        for (let r = 40; r < 200; r += 45) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      });
+
+      // H. Torn Ledger Paper Fragment
+      addCanvasAsset('tex-paper-fragment', 256, 256, (ctx, w, h) => {
+        ctx.fillStyle = '#fef3c7';
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText('CONFIDENTIAL LEDGER', 20, 40);
+        ctx.fillText('ACC #: 9402-8812-X', 20, 70);
+        ctx.fillText('TRANSFER: $450,000', 20, 100);
+        ctx.fillStyle = '#dc2626';
+        ctx.fillText('STAGED BURGLARY?', 20, 150);
+      });
+    }
+
+
+    /* ----------------------------------------------------------------- */
+    /* 2. WEB AUDIO API SYNTHESIZER FOR SFX                              */
+    /* ----------------------------------------------------------------- */
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+
+      play(type) {
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        if (type === 'hover') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(600, now);
+          osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+          gain.gain.setValueAtTime(0.05, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.05);
+          osc.start(now);
+          osc.stop(now + 0.05);
+        } 
+        else if (type === 'click') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(400, now);
+          osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        }
+        else if (type === 'collect') {
+          // 3-note ascending chime
+          [523.25, 659.25, 783.99].forEach((freq, i) => {
+            const o = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(freq, now + i * 0.08);
+            g.gain.setValueAtTime(0.2, now + i * 0.08);
+            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
+            o.connect(g);
+            g.connect(this.ctx.destination);
+            o.start(now + i * 0.08);
+            o.stop(now + i * 0.08 + 0.25);
+          });
+        }
+        else if (type === 'uv') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(450, now + 0.2);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0, now + 0.2);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        }
+        else if (type === 'success') {
+          // Victory Fanfare
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const o = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            o.type = 'triangle';
+            o.frequency.setValueAtTime(freq, now + i * 0.12);
+            g.gain.setValueAtTime(0.25, now + i * 0.12);
+            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+            o.connect(g);
+            g.connect(this.ctx.destination);
+            o.start(now + i * 0.12);
+            o.stop(now + i * 0.12 + 0.4);
+          });
+        }
+      }
+    }
+    const sfx = new SoundFX();
+
+
+    /* ----------------------------------------------------------------- */
+    /* 3. FORENSIC EVIDENCE DATABASE                                     */
+    /* ----------------------------------------------------------------- */
+    const EVIDENCE_DB = {
+      E1: {
+        id: 'E1',
+        title: 'Overturned Brass Desk Lamp',
+        desc: 'A heavy brass lamp pushed off the executive desk during an apparent struggle or staged disturbance.',
+        forensic: 'Shows heavy metallic surface suitable for latent fingerprint extraction.',
+        collected: false
+      },
+      E2: {
+        id: 'E2',
+        title: 'Latent Fingerprint Trace',
+        desc: 'High-contrast friction ridge impression on the base of the overturned desk lamp.',
+        forensic: 'Print matches victim’s business partner, who claimed he was never in the apartment today.',
+        collected: false
+      },
+      E3: {
+        id: 'E3',
+        title: 'Outward Window Glass Fracture',
+        desc: 'Shattered glass shards lying on the exterior ledge and sill near the window frame.',
+        forensic: 'CRITICAL: Radial fracture stress lines prove force was applied from INSIDE the room pushing OUTWARD. The window break was staged!',
+        collected: false
+      },
+      E4: {
+        id: 'E4',
+        title: 'Size 10 Boot Impression',
+        desc: 'Latent footprint on the floor mat near the desk, visible under UV illumination.',
+        forensic: 'Tread wear pattern matches standard issue work boots owned by the suspect.',
+        collected: false
+      },
+      E5: {
+        id: 'E5',
+        title: 'Tampered Electronic Wall Safe',
+        desc: 'Concealed safe revealed behind the tilted painting. Digital lock bypassed with master keycard.',
+        forensic: 'No sign of forced mechanical entry. Opened by someone with authorized digital clearance.',
+        collected: false
+      },
+      E6: {
+        id: 'E6',
+        title: 'Torn Financial Ledger Fragment',
+        desc: 'Shredded paper scrap found tucked under the desk edge.',
+        forensic: 'Lists wire transfer account numbers totaling $450,000 linked to corporate embezzlement.',
+        collected: false
+      },
+      E7: {
+        id: 'E7',
+        title: 'Encrypted USB Flash Drive',
+        desc: 'Discreet black USB storage drive hidden under the leather sofa edge.',
+        forensic: 'Contains backup logs of altered financial transactions before the break-in was reported.',
+        collected: false
+      }
+    };
+
+
+    /* ----------------------------------------------------------------- */
+    /* 4. CUSTOM A-FRAME COMPONENTS                                      */
+    /* ----------------------------------------------------------------- */
+
+    // A. 3D Yellow Marker Tag Component
+    AFRAME.registerComponent('marker-tag', {
+      schema: { id: { type: 'string', default: 'E1' } },
+      init: function () {
+        const el = this.el;
+        
+        // Yellow Card
+        const card = document.createElement('a-plane');
+        card.setAttribute('width', '0.18');
+        card.setAttribute('height', '0.22');
+        card.setAttribute('color', '#f59e0b');
+        card.setAttribute('material', 'roughness: 0.3; side: double');
+        card.setAttribute('rotation', '0 0 0');
+
+        // Text ID
+        const text = document.createElement('a-text');
+        text.setAttribute('value', this.data.id);
+        text.setAttribute('align', 'center');
+        text.setAttribute('color', '#000000');
+        text.setAttribute('scale', '0.45 0.45 0.45');
+        text.setAttribute('position', '0 0 0.01');
+        text.setAttribute('font', 'kelsonsans');
+
+        card.appendChild(text);
+        el.appendChild(card);
+
+        // Subtle floating bounce animation
+        el.setAttribute('animation', {
+          property: 'position',
+          dir: 'alternate',
+          dur: 1600,
+          easing: 'easeInOutSine',
+          loop: true,
+          to: `${el.object3D.position.x} ${el.object3D.position.y + 0.06} ${el.object3D.position.z}`
+        });
+      }
+    });
+
+    // B. Interactive Evidence Item Component
+    AFRAME.registerComponent('evidence-item', {
+      init: function () {
+        const el = this.el;
+        const id = el.getAttribute('data-id');
+
+        el.addEventListener('mouseenter', () => {
+          sfx.play('hover');
+          el.setAttribute('scale', '1.1 1.1 1.1');
+        });
+
+        el.addEventListener('mouseleave', () => {
+          el.setAttribute('scale', '1.0 1.0 1.0');
+        });
+
+        el.addEventListener('click', () => {
+          sfx.play('click');
+          window.CSI_SYSTEM.openInspector(id);
+        });
+      }
+    });
+
+    // C. Quest 3 Joystick Movement & Snap Turning Component
+    AFRAME.registerComponent('movement-controls-quest', {
+      init: function () {
+        this.leftController = document.querySelector('#left-controller');
+        this.rightController = document.querySelector('#right-controller');
+        this.rig = this.el;
+        this.snapTurnCooldown = false;
+
+        if (this.leftController) {
+          this.leftController.addEventListener('axismove', (evt) => {
+            // Left Stick Movement (Axes: 2 = X, 3 = Y)
+            const axes = evt.detail.axis;
+            if (axes && axes.length >= 4) {
+              const dx = axes[2];
+              const dz = axes[3];
+              if (Math.abs(dx) > 0.15 || Math.abs(dz) > 0.15) {
+                const speed = 0.04;
+                this.rig.object3D.translateX(dx * speed);
+                this.rig.object3D.translateZ(dz * speed);
+              }
+            }
+          });
+        }
+
+        if (this.rightController) {
+          this.rightController.addEventListener('axismove', (evt) => {
+            // Right Stick Snap Turn
+            const axes = evt.detail.axis;
+            if (axes && axes.length >= 4) {
+              const dx = axes[2];
+              if (Math.abs(dx) > 0.6 && !this.snapTurnCooldown) {
+                const turnAngle = dx > 0 ? -45 : 45;
+                this.rig.object3D.rotation.y += THREE.MathUtils.degToRad(turnAngle);
+                this.snapTurnCooldown = true;
+                setTimeout(() => { this.snapTurnCooldown = false; }, 400);
+              }
+            }
+          });
+        }
+      }
+    });
+
+    // D. Main CSI Game Master Controller
+    AFRAME.registerComponent('csi-game-master', {
+      init: function () {
+        window.CSI_SYSTEM = this;
+        this.collectedCount = 0;
+        this.uvActive = false;
+
+        // Initialize UI Events
+        this.setupUIEvents();
+      },
+
+      setupUIEvents: function () {
+        // Desktop Toolbar Buttons
+        document.getElementById('btn-toggle-uv').addEventListener('click', () => this.toggleUV());
+        document.getElementById('btn-toggle-tablet').addEventListener('click', () => this.toggleTabletVR());
+        document.getElementById('btn-reset').addEventListener('click', () => this.resetGame());
+
+        // Inspector Buttons
+        document.getElementById('insp-btn-close').addEventListener('click', () => this.closeInspector());
+        document.getElementById('insp-btn-collect').addEventListener('click', () => {
+          if (this.currentInspectedId) {
+            this.collectEvidence(this.currentInspectedId);
+            this.closeInspector();
+          }
+        });
+
+        // Keybind Shortcuts (F for UV, Tab for Tablet)
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'f' || e.key === 'F') this.toggleUV();
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            this.toggleTabletVR();
+          }
+        });
+
+        // VR Tablet Deduction Button Click
+        const btnDeduction = document.getElementById('btn-submit-deduction');
+        if (btnDeduction) {
+          btnDeduction.addEventListener('click', () => this.solveDeduction());
+        }
+      },
+
+      toggleUV: function () {
+        this.uvActive = !this.uvActive;
+        sfx.play('uv');
+
+        const uvLight = document.getElementById('uv-light-entity');
+        const cameraUvMesh = document.getElementById('camera-uv-mesh');
+        const uvBeamCone = document.getElementById('uv-beam-cone');
+        const btnUv = document.getElementById('btn-toggle-uv');
+
+        if (this.uvActive) {
+          uvLight.setAttribute('light', 'intensity', 3.5);
+          cameraUvMesh.setAttribute('visible', 'true');
+          uvBeamCone.setAttribute('visible', 'true');
+          btnUv.classList.add('active');
+
+          // Illuminate UV Target Materials
+          document.querySelectorAll('.uv-target').forEach(el => {
+            const childPlane = el.querySelector('a-plane');
+            if (childPlane) {
+              childPlane.setAttribute('material', 'emissive', '#38bdf8');
+              childPlane.setAttribute('material', 'emissiveIntensity', '0.9');
+            }
+          });
+        } else {
+          uvLight.setAttribute('light', 'intensity', 0);
+          cameraUvMesh.setAttribute('visible', 'false');
+          uvBeamCone.setAttribute('visible', 'false');
+          btnUv.classList.remove('active');
+
+          document.querySelectorAll('.uv-target').forEach(el => {
+            const childPlane = el.querySelector('a-plane');
+            if (childPlane) {
+              childPlane.setAttribute('material', 'emissive', '#000000');
+              childPlane.setAttribute('material', 'emissiveIntensity', '0');
+            }
+          });
+        }
+      },
+
+      toggleTabletVR: function () {
+        const tablet = document.getElementById('csi-vr-tablet');
+        const isVisible = tablet.getAttribute('visible');
+        tablet.setAttribute('visible', !isVisible);
+        sfx.play('click');
+      },
+
+      openInspector: function (id) {
+        const item = EVIDENCE_DB[id];
+        if (!item) return;
+
+        this.currentInspectedId = id;
+        document.getElementById('insp-title').textContent = item.title;
+        document.getElementById('insp-tag').textContent = item.id;
+        document.getElementById('insp-desc').textContent = item.desc;
+        document.getElementById('insp-forensic').textContent = item.forensic;
+        
+        const collectBtn = document.getElementById('insp-btn-collect');
+        if (item.collected) {
+          collectBtn.textContent = 'Already Logged';
+          collectBtn.style.background = '#475569';
+          collectBtn.disabled = true;
+        } else {
+          collectBtn.textContent = 'Collect Evidence';
+          collectBtn.style.background = '#0284c7';
+          collectBtn.disabled = false;
+        }
+
+        document.getElementById('inspector-overlay').style.display = 'flex';
+      },
+
+      closeInspector: function () {
+        document.getElementById('inspector-overlay').style.display = 'none';
+        this.currentInspectedId = null;
+      },
+
+      collectEvidence: function (id) {
+        const item = EVIDENCE_DB[id];
+        if (!item || item.collected) return;
+
+        item.collected = true;
+        this.collectedCount++;
+        sfx.play('collect');
+
+        // Update 2D HUD
+        document.getElementById('hud-status').textContent = `Evidence Collected: ${this.collectedCount} / 7`;
+
+        // Update VR Tablet Progress
+        const tabletProgress = document.getElementById('tablet-progress-bar');
+        if (tabletProgress) {
+          const ratio = this.collectedCount / 7;
+          tabletProgress.setAttribute('width', (0.8 * ratio).toFixed(2));
+          tabletProgress.setAttribute('position', `${-0.4 + (0.4 * ratio)} 0.26 0.01`);
+        }
+
+        document.getElementById('tablet-status-text').setAttribute('value', `Evidence Collected: ${this.collectedCount} / 7`);
+
+        // Update Tablet Log Text
+        let logLines = [];
+        Object.values(EVIDENCE_DB).forEach(ev => {
+          const status = ev.collected ? 'LOGGED' : 'Not Collected';
+          logLines.push(`[${ev.id}] ${ev.title.substring(0, 18)} - ${status}`);
+        });
+        document.getElementById('tablet-log-text').setAttribute('value', logLines.join('\n'));
+
+        // Hide collected 3D marker tag
+        const evEntity = document.getElementById(`evidence-${id.toLowerCase()}`);
+        if (evEntity) {
+          const markerTag = evEntity.querySelector('[marker-tag]');
+          if (markerTag) markerTag.setAttribute('visible', 'false');
+        }
+      },
+
+      solveDeduction: function () {
+        if (this.collectedCount < 7) {
+          alert(`Incomplete Evidence Logged (${this.collectedCount}/7). Find all 7 forensic clues across the room before making your final case deduction!`);
+          return;
+        }
+
+        sfx.play('success');
+        alert(
+          `🏆 CASE SOLVED - EXCELLENT FORENSIC DEDUCTION!\n\n` +
+          `Conclusion: The burglary was STAGED from the inside by the suspect.\n\n` +
+          `Key Findings:\n` +
+          `• Glass fractures point outward (broken from inside).\n` +
+          `• Safe opened with authorized master keycard.\n` +
+          `• Fingerprint & Boot impression match internal suspect.\n\n` +
+          `Forensic Accuracy Rating: 100% (Grade A+)`
+        );
+      },
+
+      resetGame: function () {
+        this.collectedCount = 0;
+        Object.keys(EVIDENCE_DB).forEach(key => {
+          EVIDENCE_DB[key].collected = false;
+        });
+
+        document.getElementById('hud-status').textContent = `Evidence Collected: 0 / 7`;
+        document.getElementById('tablet-status-text').setAttribute('value', `Evidence Collected: 0 / 7`);
+        
+        const tabletProgress = document.getElementById('tablet-progress-bar');
+        if (tabletProgress) {
+          tabletProgress.setAttribute('width', '0.01');
+          tabletProgress.setAttribute('position', '-0.4 0.26 0.01');
+        }
+
+        document.querySelectorAll('[marker-tag]').forEach(el => el.setAttribute('visible', 'true'));
+        sfx.play('click');
+      }
+    });
+
+    // Initialize textures when DOM is loaded
+    window.addEventListener('DOMContentLoaded', () => {
+      createProceduralTextures();
+    });
+  </script>
+
+</body>
+</html>
