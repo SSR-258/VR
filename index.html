@@ -1,1196 +1,2216 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>CSI VR Training Simulator - Meta Quest 3 / WebXR Forensic Investigation</title>
-  
-  <!-- A-Frame VR Framework 1.6.0 -->
-  <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CSI: The Silent Room — Forensic WebXR & Desktop Simulation</title>
+  <meta name="description" content="Forensic Crime Scene Investigation simulation with direct Mouse & Keyboard laptop controls and Meta Quest 3S WebXR support.">
+
+  <!-- A-Frame 1.5.0 -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- Google Fonts: Orbitron, Inter, Share Tech Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
   <style>
-    /* Sleek Modern Dark Overlay UI Styles */
-    body {
+    :root {
+      --primary: #00f0ff;
+      --primary-glow: rgba(0, 240, 255, 0.4);
+      --accent: #ffd700;
+      --accent-glow: rgba(255, 215, 0, 0.35);
+      --bg-dark: rgba(7, 11, 20, 0.96);
+      --card-bg: rgba(14, 22, 38, 0.94);
+      --card-border: rgba(0, 240, 255, 0.3);
+      --danger: #ff2a5f;
+      --success: #00ff88;
+      --text-main: #e2e8f0;
+      --text-dim: #94a3b8;
+      --mono: 'Share Tech Mono', monospace;
+      --hud-font: 'Orbitron', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
       margin: 0;
       padding: 0;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
-      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      user-select: none;
-      background-color: #050811;
-      color: #e2e8f0;
+      background-color: #03060a;
+      font-family: 'Inter', -apple-system, sans-serif;
+      color: var(--text-main);
     }
 
-    /* 2D Overlay HUD & Desktop Controls UI */
-    #desktop-hud {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      z-index: 1000;
-      background: rgba(10, 16, 30, 0.85);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      border-radius: 12px;
-      padding: 14px 18px;
-      color: #f1f5f9;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-      max-width: 320px;
-      pointer-events: auto;
-      transition: all 0.3s ease;
-    }
-
-    #desktop-hud h2 {
-      margin: 0 0 6px 0;
-      font-size: 16px;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: #38bdf8;
+    /* ----------------------------------------------------------------
+       PERMANENT CENTER-SCREEN CROSSHAIR
+       ---------------------------------------------------------------- */
+    #crosshair-container {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 8000;
       display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+    }
+
+    #crosshair {
+      position: relative;
+      width: 24px;
+      height: 24px;
+      transition: transform 0.15s ease-out;
+    }
+
+    #crosshair::before, #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(0, 240, 255, 0.9);
+      box-shadow: 0 0 8px var(--primary-glow);
+    }
+
+    /* Horizontal line */
+    #crosshair::before {
+      top: 11px;
+      left: 0;
+      width: 24px;
+      height: 2px;
+    }
+
+    /* Vertical line */
+    #crosshair::after {
+      top: 0;
+      left: 11px;
+      width: 2px;
+      height: 24px;
+    }
+
+    #crosshair-dot {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 4px;
+      height: 4px;
+      background: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #ffffff, 0 0 16px var(--primary);
+    }
+
+    #crosshair-ring {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      border: 1px dashed rgba(0, 240, 255, 0.6);
+      border-radius: 50%;
+      animation: spin-slow 10s linear infinite;
+    }
+
+    @keyframes spin-slow {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Crosshair targeting active state */
+    #crosshair-container.targeting #crosshair {
+      transform: scale(1.4);
+    }
+    #crosshair-container.targeting #crosshair::before,
+    #crosshair-container.targeting #crosshair::after {
+      background: var(--accent);
+      box-shadow: 0 0 14px var(--accent-glow);
+    }
+    #crosshair-container.targeting #crosshair-dot {
+      background: var(--accent);
+      transform: scale(1.8);
+      box-shadow: 0 0 14px var(--accent);
+    }
+    #crosshair-container.targeting #crosshair-ring {
+      border-color: var(--accent);
+      border-style: solid;
+      width: 28px;
+      height: 28px;
+      top: -2px;
+      left: -2px;
+      animation: spin-slow 2.5s linear infinite;
+    }
+
+    /* Crosshair holding active state */
+    #crosshair-container.holding #crosshair {
+      transform: scale(1.15);
+    }
+    #crosshair-container.holding #crosshair-dot {
+      background: var(--success);
+      box-shadow: 0 0 14px var(--success);
+    }
+
+    /* ----------------------------------------------------------------
+       FIXED TOP NAVIGATION & INTERACTIVE BUTTONS (CRITICAL REQUIREMENT)
+       Always clickable (pointer-events: auto, z-index: 99999)
+       ---------------------------------------------------------------- */
+    .top-fixed-nav {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 99999;
+      pointer-events: none; /* children have pointer-events: auto */
+    }
+
+    .top-nav-left {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .case-title-badge {
+      background: linear-gradient(135deg, rgba(8, 20, 38, 0.95), rgba(15, 30, 55, 0.92));
+      border: 1.5px solid var(--primary);
+      border-left: 5px solid var(--primary);
+      border-radius: 8px;
+      padding: 10px 18px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 15px var(--primary-glow);
+      backdrop-filter: blur(10px);
+    }
+
+    .case-title-badge h1 {
+      margin: 0;
+      font-family: var(--hud-font);
+      font-size: 14px;
+      letter-spacing: 2px;
+      color: var(--primary);
+      text-transform: uppercase;
+    }
+
+    .case-title-badge p {
+      margin: 3px 0 0 0;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+
+    .top-nav-right {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    /* Prominent Fixed Action Buttons (CASE & INVENTORY) */
+    .btn-nav-action {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.15), rgba(0, 100, 200, 0.25));
+      color: #ffffff;
+      border: 1.5px solid var(--primary);
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-family: var(--hud-font);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 15px var(--primary-glow);
+      backdrop-filter: blur(8px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-flex;
       align-items: center;
       gap: 8px;
     }
 
-    #desktop-hud h2::before {
-      content: '';
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      background-color: #0ea5e9;
-      border-radius: 50%;
-      box-shadow: 0 0 8px #0ea5e9;
+    .btn-nav-action:hover {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.35), rgba(0, 140, 255, 0.45));
+      border-color: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0, 240, 255, 0.5);
     }
 
-    #desktop-hud p {
-      margin: 4px 0;
-      font-size: 13px;
-      color: #94a3b8;
-      line-height: 1.4;
+    .btn-nav-action:active {
+      transform: translateY(1px);
     }
 
-    .badge-status {
-      display: inline-block;
-      background: rgba(14, 165, 233, 0.15);
-      color: #38bdf8;
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      padding: 3px 8px;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 12px;
-      margin-top: 6px;
+    .btn-nav-action.gold-theme {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(180, 130, 0, 0.3));
+      border-color: var(--accent);
+      color: #fff2a3;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 15px var(--accent-glow);
     }
 
-    /* Floating Tool Bar (2D Desktop Fallback Controls) */
-    #desktop-toolbar {
-      position: absolute;
-      bottom: 20px;
+    .btn-nav-action.gold-theme:hover {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.4), rgba(220, 160, 0, 0.5));
+      border-color: #ffffff;
+      color: #ffffff;
+    }
+
+    .stat-counter-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 90px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      backdrop-filter: blur(8px);
+    }
+
+    .stat-counter-pill .label {
+      font-size: 9px;
+      font-family: var(--hud-font);
+      color: var(--text-dim);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .stat-counter-pill .val {
+      font-size: 16px;
+      font-family: var(--hud-font);
+      font-weight: 900;
+      color: var(--accent);
+      margin-top: 2px;
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* ----------------------------------------------------------------
+       CENTER-BOTTOM TARGETING HUD
+       ---------------------------------------------------------------- */
+    #target-hud {
+      position: fixed;
+      bottom: 110px;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 1000;
+      background: linear-gradient(180deg, rgba(12, 22, 38, 0.95), rgba(6, 12, 22, 0.98));
+      border: 1.5px solid var(--primary);
+      border-radius: 10px;
+      padding: 14px 28px;
+      min-width: 320px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), 0 0 20px var(--primary-glow);
+      backdrop-filter: blur(12px);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 9000;
+      pointer-events: none;
+    }
+
+    #target-hud.active-target {
+      border-color: var(--accent);
+      box-shadow: 0 12px 45px rgba(0, 0, 0, 0.9), 0 0 28px var(--accent-glow);
+      transform: translateX(-50%) scale(1.05);
+    }
+
+    .hud-title-line {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .hud-target-name {
+      font-family: var(--hud-font);
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    #target-hud.active-target .hud-target-name {
+      color: var(--accent);
+      text-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .hud-actions {
       display: flex;
-      gap: 12px;
-      background: rgba(15, 23, 42, 0.9);
-      padding: 8px 16px;
-      border-radius: 30px;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .action-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.08);
+      padding: 4px 9px;
+      border-radius: 5px;
       border: 1px solid rgba(255, 255, 255, 0.15);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .chip-key {
+      display: inline-block;
+      background: var(--primary);
+      color: #03060a;
+      font-weight: 900;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+
+    .chip-key.gold {
+      background: var(--accent);
+    }
+
+    .chip-key.green {
+      background: var(--success);
+    }
+
+    /* Floating Banner when Holding Evidence */
+    #holding-banner {
+      display: none;
+      position: fixed;
+      top: 85px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, rgba(0, 90, 50, 0.95), rgba(0, 40, 25, 0.95));
+      border: 1.5px solid var(--success);
+      color: #ffffff;
+      padding: 10px 28px;
+      border-radius: 30px;
+      font-family: var(--hud-font);
+      font-size: 14px;
+      letter-spacing: 1px;
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.45);
+      text-align: center;
+      animation: pulse-glow 2s infinite alternate;
+      z-index: 99990;
+      pointer-events: none;
+    }
+
+    @keyframes pulse-glow {
+      0% { box-shadow: 0 0 15px rgba(0, 255, 136, 0.3); }
+      100% { box-shadow: 0 0 35px rgba(0, 255, 136, 0.8); }
+    }
+
+    /* ----------------------------------------------------------------
+       BOTTOM BAR: CONTROLS GUIDE & DESKTOP DEBUG PANEL
+       ---------------------------------------------------------------- */
+    .bottom-fixed-bar {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      z-index: 99990;
+      pointer-events: none;
+    }
+
+    .guide-strip {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 8px 18px;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.6);
       pointer-events: auto;
     }
 
-    .hud-btn {
-      background: #1e293b;
-      color: #e2e8f0;
-      border: 1px solid #334155;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
+    .guide-node {
       display: flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.2s ease;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--text-dim);
     }
 
-    .hud-btn:hover {
-      background: #0284c7;
+    .kbd-tag {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.3);
       color: #ffffff;
-      border-color: #38bdf8;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.4);
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
     }
 
-    .hud-btn.active {
-      background: #0ea5e9;
+    /* Desktop Debug Panel (CRITICAL REQUIREMENT) */
+    #debug-panel {
+      background: rgba(5, 12, 24, 0.92);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #7dd3fc;
+      line-height: 1.6;
+      min-width: 210px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7);
+      pointer-events: auto;
+    }
+
+    #debug-panel .dbg-title {
+      font-family: var(--hud-font);
+      font-size: 10px;
+      color: var(--primary);
+      letter-spacing: 1.5px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.25);
+      padding-bottom: 2px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #debug-panel .val {
       color: #ffffff;
-      border-color: #7dd3fc;
-      box-shadow: 0 0 15px rgba(14, 165, 233, 0.6);
+      font-weight: 700;
     }
 
-    /* Modal Inspector Overlay (for Desktop fallback viewing) */
-    #inspector-overlay {
+    /* Action Notification Toast Banner */
+    #action-toast {
+      position: fixed;
+      top: 140px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.95), rgba(0, 120, 220, 0.95));
+      color: #03060a;
+      font-family: var(--hud-font);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      padding: 10px 30px;
+      border-radius: 30px;
+      box-shadow: 0 10px 35px rgba(0, 240, 255, 0.6);
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 100000;
+    }
+
+    #action-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ----------------------------------------------------------------
+       MODAL OVERLAYS (CASE FILE, INVENTORY, INSPECTION)
+       Must have z-index: 99999 and pointer-events: auto for buttons
+       ---------------------------------------------------------------- */
+    .modal-backdrop {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(5, 8, 17, 0.85);
-      backdrop-filter: blur(10px);
-      z-index: 2000;
+      background: rgba(2, 6, 14, 0.85);
+      backdrop-filter: blur(14px);
+      z-index: 99999;
       display: none;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
+      padding: 20px;
       pointer-events: auto;
     }
 
-    .inspector-card {
-      background: #0f172a;
-      border: 1px solid #0369a1;
-      box-shadow: 0 0 40px rgba(14, 165, 233, 0.25);
-      border-radius: 16px;
-      width: 90%;
-      max-width: 520px;
-      padding: 24px;
-      position: relative;
+    .modal-backdrop.open {
+      display: flex;
     }
 
-    .inspector-header {
+    .modal-card {
+      background: linear-gradient(145deg, rgba(14, 23, 40, 0.98), rgba(7, 13, 25, 0.99));
+      border: 1.5px solid var(--primary);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 650px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.9), 0 0 40px var(--primary-glow);
+      overflow: hidden;
+      animation: modal-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: auto;
+    }
+
+    @keyframes modal-enter {
+      from { transform: scale(0.9) translateY(20px); opacity: 0; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .modal-top {
+      padding: 16px 24px;
+      background: rgba(0, 240, 255, 0.08);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.25);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #1e293b;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
     }
 
-    .inspector-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #38bdf8;
+    .modal-top h2 {
       margin: 0;
+      font-family: var(--hud-font);
+      font-size: 16px;
+      color: var(--primary);
+      letter-spacing: 2px;
+      text-transform: uppercase;
     }
 
-    .evidence-tag {
-      background: #f59e0b;
-      color: #000;
-      font-weight: 800;
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-
-    .inspector-desc {
+    .btn-close-x {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-family: var(--mono);
       font-size: 14px;
-      line-height: 1.6;
-      color: #cbd5e1;
-      margin-bottom: 20px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
     }
 
-    .forensic-note {
-      background: rgba(30, 41, 59, 0.7);
-      border-left: 4px solid #0ea5e9;
-      padding: 10px 14px;
-      border-radius: 0 8px 8px 0;
-      font-size: 13px;
-      color: #93c5fd;
-      margin-bottom: 20px;
+    .btn-close-x:hover {
+      background: var(--danger);
+      border-color: var(--danger);
     }
 
-    .action-row {
+    .modal-content-area {
+      padding: 22px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-bottom {
+      padding: 16px 24px;
+      background: rgba(0, 0, 0, 0.4);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
       gap: 12px;
     }
 
-    .btn-primary {
-      background: #0284c7;
-      color: #fff;
+    /* Modal Action Buttons */
+    .btn-primary-action {
+      background: linear-gradient(135deg, #00f0ff, #0088cc);
+      color: #03060a;
       border: none;
-      padding: 10px 20px;
       border-radius: 8px;
-      font-weight: 600;
+      padding: 10px 22px;
+      font-family: var(--hud-font);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1px;
       cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 240, 255, 0.4);
+      transition: all 0.2s;
     }
 
-    .btn-primary:hover {
-      background: #0369a1;
+    .btn-primary-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.6);
+      filter: brightness(1.1);
     }
 
-    .btn-secondary {
-      background: #334155;
-      color: #cbd5e1;
-      border: none;
+    .btn-secondary-action {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
       padding: 10px 18px;
-      border-radius: 8px;
+      font-family: var(--hud-font);
+      font-size: 12px;
       font-weight: 600;
+      letter-spacing: 1px;
       cursor: pointer;
+      transition: all 0.2s;
     }
 
-    /* Crosshair for Desktop navigation */
-    #crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 8px;
-      height: 8px;
-      margin-left: -4px;
-      margin-top: -4px;
-      background: rgba(56, 189, 248, 0.8);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 999;
-      box-shadow: 0 0 8px rgba(56, 189, 248, 0.9);
-      transition: transform 0.1s ease;
+    .btn-secondary-action:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: #ffffff;
+    }
+
+    .btn-collect-hero {
+      background: linear-gradient(135deg, #00ff88, #00aa55);
+      color: #03060a;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 26px;
+      font-family: var(--hud-font);
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(0, 255, 136, 0.45);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-collect-hero:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 255, 136, 0.7);
+      filter: brightness(1.1);
+    }
+
+    /* Case File Specific Layout */
+    .case-subhead {
+      font-family: var(--hud-font);
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      color: var(--primary);
+      margin: 16px 0 8px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .case-subhead::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(0, 240, 255, 0.2);
+    }
+
+    .obj-container {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 16px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .obj-item-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 3px solid #64748b;
+      font-size: 12px;
+      font-family: var(--mono);
+    }
+
+    .obj-item-box.done {
+      border-left-color: var(--success);
+      background: rgba(0, 255, 136, 0.08);
+      color: #ffffff;
+    }
+
+    .obj-mark {
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--text-dim);
+    }
+
+    .obj-item-box.done .obj-mark {
+      color: var(--success);
+    }
+
+    .case-evi-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .case-evi-node {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .case-evi-node.collected {
+      border-color: rgba(0, 255, 136, 0.4);
+      background: rgba(0, 255, 136, 0.06);
+    }
+
+    .evi-badge-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-dim);
+    }
+
+    .case-evi-node.collected .evi-badge-pill {
+      background: rgba(0, 255, 136, 0.2);
+      color: var(--success);
+    }
+
+    .bar-wrapper {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      height: 12px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--primary), var(--success));
+      box-shadow: 0 0 12px var(--primary-glow);
+      transition: width 0.4s ease;
+    }
+
+    /* Inspection Modal Layout */
+    .inspect-card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .inspect-top-block {
+      background: rgba(0, 240, 255, 0.06);
+      border: 1px solid var(--primary);
+      border-radius: 8px;
+      padding: 14px 18px;
+    }
+
+    .inspect-tag-id {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--primary);
+      letter-spacing: 2px;
+    }
+
+    .inspect-item-title {
+      font-family: var(--hud-font);
+      font-size: 20px;
+      font-weight: 900;
+      color: #ffffff;
+      margin: 4px 0 0;
+    }
+
+    .inspect-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .inspect-meta-cell {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 10px 14px;
+      border-radius: 6px;
+    }
+
+    .inspect-meta-cell .lbl {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .inspect-meta-cell .txt {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-top: 3px;
+    }
+
+    .inspect-narrative {
+      background: rgba(255, 255, 255, 0.04);
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .inspect-narrative p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+
+    .inspect-status-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    /* Inventory Items List */
+    .inv-list-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .inv-item-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .inv-item-card.secured {
+      border-color: rgba(0, 255, 136, 0.35);
+      background: rgba(0, 255, 136, 0.05);
+    }
+
+    .inv-item-card .name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      font-family: var(--hud-font);
+    }
+
+    .inv-item-card .sub {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--mono);
     }
   </style>
-</head>
-<body>
 
-  <!-- Crosshair dot for Desktop aim -->
-  <div id="crosshair"></div>
-
-  <!-- 2D HUD Info Overlay -->
-  <div id="desktop-hud">
-    <h2>CSI Case #104</h2>
-    <p><strong>Location:</strong> Apartment Room 3B</p>
-    <p><strong>Objective:</strong> Locate & analyze 7 forensic evidence clues. Uncover if the crime scene was staged.</p>
-    <div id="hud-status" class="badge-status">Evidence Collected: 0 / 7</div>
-  </div>
-
-  <!-- Desktop Controls Toolbar -->
-  <div id="desktop-toolbar">
-    <button class="hud-btn" id="btn-toggle-uv">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
-      UV Flashlight (F)
-    </button>
-    <button class="hud-btn" id="btn-toggle-tablet">
-      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-      CSI Tablet (Tab)
-    </button>
-    <button class="hud-btn" id="btn-reset">
-      Reset Case
-    </button>
-  </div>
-
-  <!-- 2D Inspector Dialog Overlay (Fallback / Responsive view) -->
-  <div id="inspector-overlay">
-    <div class="inspector-card">
-      <div class="inspector-header">
-        <h3 class="inspector-title" id="insp-title">Evidence Name</h3>
-        <span class="evidence-tag" id="insp-tag">E1</span>
-      </div>
-      <p class="inspector-desc" id="insp-desc">Evidence analysis text details...</p>
-      <div class="forensic-note" id="insp-note">
-        <strong>Forensic Analysis:</strong> <span id="insp-forensic">Details here...</span>
-      </div>
-      <div class="action-row">
-        <button class="btn-secondary" id="insp-btn-close">Close</button>
-        <button class="btn-primary" id="insp-btn-collect">Collect Evidence</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================================================================= -->
-  <!-- A-FRAME 3D SCENE                                                  -->
-  <!-- ================================================================= -->
-  <a-scene 
-    webxr="optionalFeatures: hit-test, local-floor; referenceSpaceType: local-floor"
-    renderer="antialias: true; colorManagement: true; exposure: 1.1; highRefreshRate: true"
-    shadow="type: pcfsoft"
-    background="color: #050811"
-    csi-game-master>
-
-    <!-- Asset Management & Canvas Procedural Textures -->
-    <a-assets>
-      <!-- Generated Canvas Textures inserted by JS below -->
-    </a-assets>
-
-    <!-- SCENE LIGHTING -->
-    <a-entity light="type: ambient; color: #64748b; intensity: 0.65"></a-entity>
-    
-    <!-- Ceiling Lamp Light -->
-    <a-entity light="type: point; color: #fffbeb; intensity: 0.9; distance: 12; decay: 1.5; castShadow: true" position="0 3.2 0"></a-entity>
-
-    <!-- Desk Spotlight (adds dramatic crime scene mood) -->
-    <a-entity light="type: spot; color: #fde68a; intensity: 1.2; angle: 45; penumbra: 0.4; distance: 8; castShadow: true" position="-1.8 2.8 -2.2" rotation="-65 -30 0"></a-entity>
-
-    <!-- UV Flashlight Light Source (dynamic spotlight attached to user/flashlight) -->
-    <a-entity id="uv-light-entity" light="type: spot; color: #a855f7; intensity: 0; angle: 35; penumbra: 0.2; distance: 7" position="0 1.5 0"></a-entity>
-
-    <!-- PLAYER RIG / CAMERA CONTROLS -->
-    <a-entity id="rig" position="0 0 2.2" rotation="0 0 0" movement-controls-quest>
-      
-      <!-- Head / Camera -->
-      <a-camera id="head-camera" position="0 1.6 0" look-controls="pointerLockEnabled: false" wasd-controls="acceleration: 12">
-        
-        <!-- Desktop Cursor Raycaster -->
-        <a-entity id="desktop-cursor" 
-                  cursor="rayOrigin: mouse" 
-                  raycaster="objects: .interactive, .evidence; far: 5">
-        </a-entity>
-
-        <!-- UV Flashlight mesh attached in front of camera view for desktop/VR camera alignment -->
-        <a-entity id="camera-uv-mesh" position="0.3 -0.25 -0.5" rotation="0 0 0" visible="false">
-          <a-cylinder radius="0.025" height="0.18" color="#1e293b" rotation="90 0 0"></a-cylinder>
-          <a-cone radius-bottom="0.035" radius-top="0.025" height="0.06" color="#3b82f6" position="0 0 -0.1" rotation="-90 0 0"></a-cone>
-          <a-cylinder id="uv-beam-cone" radius-bottom="0.4" radius-top="0.03" height="3" material="color: #c084fc; opacity: 0.25; transparent: true; shader: flat" position="0 0 -1.5" rotation="-90 0 0" visible="false"></a-cylinder>
-        </a-entity>
-
-      </a-camera>
-
-      <!-- QUEST 3 / 3S CONTROLLERS -->
-      <!-- Left Controller (Navigation / CSI Tablet) -->
-      <a-entity id="left-controller" 
-                oculus-touch-controls="hand: left" 
-                laser-controls="hand: left" 
-                raycaster="objects: .interactive, .evidence, .ui-btn; far: 5; showLine: true; lineMaterial: color: #38bdf8">
-      </a-entity>
-
-      <!-- Right Controller (Interaction / UV Scanner Tool) -->
-      <a-entity id="right-controller" 
-                oculus-touch-controls="hand: right" 
-                laser-controls="hand: right" 
-                raycaster="objects: .interactive, .evidence, .ui-btn; far: 5; showLine: true; lineMaterial: color: #38bdf8">
-      </a-entity>
-
-    </a-entity>
-
-
-    <!-- ================================================================= -->
-    <!-- 3D CRIME SCENE ARCHITECTURE & ROOM ENVIRONMENT                   -->
-    <!-- ================================================================= -->
-    <a-entity id="crime-scene-room">
-      
-      <!-- Floor -->
-      <a-plane id="room-floor" position="0 0 0" rotation="-90 0 0" width="7" height="7" material="src: #tex-floor; repeat: 4 4; roughness: 0.5" receive-shadow></a-plane>
-      
-      <!-- Ceiling -->
-      <a-plane position="0 3.5 0" rotation="90 0 0" width="7" height="7" color="#1e293b" material="roughness: 0.9"></a-plane>
-
-      <!-- Walls -->
-      <!-- Back Wall (North) -->
-      <a-plane position="0 1.75 -3.5" rotation="0 0 0" width="7" height="3.5" material="src: #tex-wall; repeat: 6 3; roughness: 0.8"></a-plane>
-      <!-- Front Wall (South) with Entrance Door -->
-      <a-plane position="-2 1.75 3.5" rotation="0 180 0" width="3" height="3.5" material="src: #tex-wall; repeat: 3 3; roughness: 0.8"></a-plane>
-      <a-plane position="2 1.75 3.5" rotation="0 180 0" width="3" height="3.5" material="src: #tex-wall; repeat: 3 3; roughness: 0.8"></a-plane>
-      <a-plane position="0 3.0 3.5" rotation="0 180 0" width="1" height="1" material="src: #tex-wall; repeat: 1 1; roughness: 0.8"></a-plane>
-      <!-- Entrance Door -->
-      <a-box id="entry-door" position="0 1.1 3.48" width="0.95" height="2.2" depth="0.08" color="#334155" material="roughness: 0.6">
-        <a-sphere position="0.4 0 0.05" radius="0.04" color="#fbbf24" material="metalness: 0.9; roughness: 0.2"></a-sphere>
-      </a-box>
-
-      <!-- Left Wall (West) with Window -->
-      <a-plane position="-3.5 1.75 0" rotation="0 90 0" width="7" height="3.5" material="src: #tex-wall; repeat: 6 3; roughness: 0.8"></a-plane>
-      <!-- Right Wall (East) -->
-      <a-plane position="3.5 1.75 0" rotation="0 -90 0" width="7" height="3.5" material="src: #tex-wall; repeat: 6 3; roughness: 0.8"></a-plane>
-
-      <!-- Baseboards / Skirting Boards -->
-      <a-box position="0 0.08 -3.46" width="7" height="0.16" depth="0.04" color="#0f172a"></a-box>
-      <a-box position="-3.46 0.08 0" rotation="0 90 0" width="7" height="0.16" depth="0.04" color="#0f172a"></a-box>
-      <a-box position="3.46 0.08 0" rotation="0 90 0" width="7" height="0.16" depth="0.04" color="#0f172a"></a-box>
-
-      <!-- Window Frame & Shattered Glass Pane (West Wall) -->
-      <a-entity id="window-structure" position="-3.45 1.8 -1.2" rotation="0 90 0">
-        <!-- Frame Outer -->
-        <a-box width="1.6" height="1.8" depth="0.08" color="#1e293b"></a-box>
-        <!-- Glass Intact Pane (Top) -->
-        <a-plane position="0 0.45 0.01" width="1.4" height="0.75" material="color: #94a3b8; opacity: 0.35; transparent: true; roughness: 0.1"></a-plane>
-        <!-- Broken Glass Frame Pane (Bottom) -->
-        <a-plane position="0 -0.45 0.01" width="1.4" height="0.75" material="color: #cbd5e1; opacity: 0.25; transparent: true; roughness: 0.1"></a-plane>
-        
-        <!-- Stress Cracks Pattern on Window Glass (Forensic clue: stress lines radiate outward) -->
-        <a-plane position="0 -0.45 0.02" width="1.3" height="0.7" material="src: #tex-glass-cracks; transparent: true; opacity: 0.9"></a-plane>
-      </a-entity>
-
-      <!-- Rug in Center of Room -->
-      <a-plane position="0 0.01 -0.5" rotation="-90 0 0" width="2.8" height="2.2" material="src: #tex-rug; roughness: 0.95"></a-plane>
-
-    </a-entity>
-
-
-    <!-- ================================================================= -->
-    <!-- FURNITURE & DECORATION                                            -->
-    <!-- ================================================================= -->
-    <a-entity id="furniture-group">
-      
-      <!-- Executive Desk (North-West corner) -->
-      <a-entity id="desk" position="-2.1 0 -2.4">
-        <!-- Desk Top -->
-        <a-box position="0 0.75 0" width="1.8" height="0.08" depth="0.9" color="#1e1b18" material="roughness: 0.4" cast-shadow></a-box>
-        <!-- Desk Legs -->
-        <a-box position="-0.8 0.365 -0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
-        <a-box position="0.8 0.365 -0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
-        <a-box position="-0.8 0.365 0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
-        <a-box position="0.8 0.365 0.38" width="0.08" height="0.73" depth="0.08" color="#0f172a"></a-box>
-        <!-- Desk Drawer Unit -->
-        <a-box position="0.55 0.38 0" width="0.45" height="0.65" depth="0.8" color="#27272a"></a-box>
-        
-        <!-- Laptop / Monitor on Desk -->
-        <a-box position="-0.3 0.81 -0.1" width="0.38" height="0.02" depth="0.26" color="#334155"></a-box>
-        <a-box position="-0.3 0.95 -0.22" width="0.38" height="0.25" depth="0.02" color="#0f172a" rotation="-15 0 0"></a-box>
-      </a-entity>
-
-      <!-- Desk Chair (Overturned / Pushed back) -->
-      <a-entity id="office-chair" position="-2.1 0 -1.3" rotation="0 35 0">
-        <a-cylinder position="0 0.25 0" radius="0.28" height="0.05" color="#0f172a"></a-cylinder>
-        <a-box position="0 0.5 0" width="0.48" height="0.08" depth="0.48" color="#0284c7"></a-box>
-        <a-box position="0 0.85 -0.2" width="0.46" height="0.6" depth="0.08" color="#0284c7"></a-box>
-      </a-entity>
-
-      <!-- Leather Sofa (East Wall) -->
-      <a-entity id="sofa" position="2.3 0 -0.8" rotation="0 -90 0">
-        <!-- Seat Base -->
-        <a-box position="0 0.25 0" width="1.8" height="0.3" depth="0.8" color="#332211" material="roughness: 0.6"></a-box>
-        <!-- Cushions -->
-        <a-box position="-0.42 0.43 0.05" width="0.8" height="0.16" depth="0.65" color="#442a15"></a-box>
-        <a-box position="0.42 0.43 0.05" width="0.8" height="0.16" depth="0.65" color="#442a15"></a-box>
-        <!-- Backrest -->
-        <a-box position="0 0.7 -0.32" width="1.8" height="0.6" depth="0.2" color="#2b1a0a"></a-box>
-        <!-- Armrests -->
-        <a-box position="-0.85 0.55 0" width="0.2" height="0.4" depth="0.8" color="#2b1a0a"></a-box>
-        <a-box position="0.85 0.55 0" width="0.2" height="0.4" depth="0.8" color="#2b1a0a"></a-box>
-      </a-entity>
-
-      <!-- Bookshelf (North-East Corner) -->
-      <a-entity id="bookshelf" position="2.4 0 -3.0" rotation="0 0 0">
-        <a-box position="0 1.1 0" width="1.2" height="2.2" depth="0.38" color="#1e1b18"></a-box>
-        <!-- Shelves -->
-        <a-box position="0 0.55 0" width="1.14" height="0.04" depth="0.34" color="#27272a"></a-box>
-        <a-box position="0 1.05 0" width="1.14" height="0.04" depth="0.34" color="#27272a"></a-box>
-        <a-box position="0 1.55 0" width="1.14" height="0.04" depth="0.34" color="#27272a"></a-box>
-        <!-- Books -->
-        <a-box position="-0.35 1.25 0" width="0.15" height="0.3" depth="0.22" color="#991b1b"></a-box>
-        <a-box position="-0.15 1.23 0" width="0.12" height="0.26" depth="0.22" color="#1e3a8a"></a-box>
-        <a-box position="0.1 1.26 0" width="0.22" height="0.32" depth="0.22" color="#065f46"></a-box>
-      </a-entity>
-
-      <!-- Framed Painting & Wall Safe (North Wall) -->
-      <!-- Painting Frame (Can be clicked to tilt/slide revealing wall safe!) -->
-      <a-entity id="painting-safe-assembly" position="0.6 1.9 -3.44">
-        <!-- Electronic Wall Safe hidden behind frame -->
-        <a-box id="wall-safe-box" position="0 0 -0.02" width="0.55" height="0.55" depth="0.12" color="#1e293b" class="interactive">
-          <!-- Safe Door (Ajar / Opened) -->
-          <a-box id="safe-door" position="0.22 0 0.08" rotation="0 65 0" width="0.26" height="0.5" depth="0.04" color="#334155">
-            <a-cylinder position="-0.08 0 0.03" radius="0.05" height="0.02" color="#f59e0b" rotation="90 0 0"></a-cylinder>
-          </a-box>
-          <!-- Empty Safe Interior dark cavity -->
-          <a-box position="0 0 0.02" width="0.48" height="0.48" depth="0.08" color="#020617"></a-box>
-        </a-box>
-
-        <!-- Framed Painting (Tilted aside revealing safe) -->
-        <a-entity id="framed-painting" position="0.35 0 0.04" rotation="0 0 18" class="interactive">
-          <a-box width="0.75" height="0.75" depth="0.04" color="#451a03"></a-box>
-          <a-plane position="0 0 0.025" width="0.68" height="0.68" material="src: #tex-art; roughness: 0.3"></a-plane>
-        </a-entity>
-      </a-entity>
-
-      <!-- Tutorial / Onboarding Wall Board (South Wall near entrance) -->
-      <a-entity position="-1.8 1.8 3.42" rotation="0 0 0">
-        <a-plane width="1.6" height="1.4" color="#0f172a" material="roughness: 0.5; border: 2px solid #38bdf8"></a-plane>
-        <a-text value="CSI INVESTIGATION PROTOCOL" align="center" position="0 0.52 0.02" scale="0.4 0.4 0.4" color="#38bdf8" font="kelsonsans"></a-text>
-        <a-text value="1. Explore the room for forensic clues.\n2. Point Raycaster / Mouse & Click evidence.\n3. Examine 3D items closely in Inspector.\n4. Toggle UV Flashlight (F key / Controller) to discover latent prints & footprints.\n5. Log all 7 items to solve Case #104." 
-                align="left" position="-0.7 0.05 0.02" scale="0.26 0.26 0.26" color="#e2e8f0" line-height="58"></a-text>
-        <a-plane position="0 -0.5 0.01" width="1.5" height="0.02" color="#0ea5e9"></a-plane>
-      </a-entity>
-
-    </a-entity>
-
-
-    <!-- ================================================================= -->
-    <!-- FORENSIC EVIDENCE ITEMS & MARKERS (E1 - E7)                       -->
-    <!-- ================================================================= -->
-    <a-entity id="evidence-group">
-
-      <!-- E1: KNOCKED-OVER BRASS DESK LAMP -->
-      <a-entity id="evidence-e1" position="-2.2 0.79 -2.0" rotation="80 -45 0" class="evidence" data-id="E1" evidence-item>
-        <!-- Brass Lamp Mesh -->
-        <a-cylinder radius="0.12" height="0.04" color="#d97706" material="metalness: 0.8; roughness: 0.2"></a-cylinder>
-        <a-cylinder position="0 0.25 0" radius="0.025" height="0.5" color="#b45309" material="metalness: 0.8; roughness: 0.2"></a-cylinder>
-        <a-cone position="0 0.5 0" radius-bottom="0.18" radius-top="0.08" height="0.22" color="#78350f" material="roughness: 0.4"></a-cone>
-
-        <!-- 3D Yellow Marker Tag Floating Above -->
-        <a-entity marker-tag="id: E1" position="0 0.7 0" rotation="-80 45 0"></a-entity>
-      </a-entity>
-
-      <!-- E2: LATENT FINGERPRINT (on Lamp Base) -->
-      <!-- Revealed clearly under close inspection or UV light -->
-      <a-entity id="evidence-e2" position="-2.22 0.81 -1.95" rotation="-10 45 0" class="evidence uv-target" data-id="E2" evidence-item>
-        <a-plane width="0.14" height="0.14" material="src: #tex-fingerprint; transparent: true; opacity: 0.85; emissive: #000000"></a-plane>
-        <a-entity marker-tag="id: E2" position="0 0.3 0" rotation="10 -45 0"></a-entity>
-      </a-entity>
-
-      <!-- E3: GLASS SHARDS OUTSIDE FRACTURE (Near window on floor) -->
-      <a-entity id="evidence-e3" position="-3.1 0.01 -1.2" rotation="-90 0 30" class="evidence uv-target" data-id="E3" evidence-item>
-        <!-- Glass shards cluster -->
-        <a-plane width="0.6" height="0.6" material="src: #tex-glass-cracks; transparent: true; opacity: 0.9; emissive: #000000"></a-plane>
-        <a-cone position="-0.1 0.03 0.1" radius-bottom="0.08" radius-top="0.01" height="0.02" color="#cbd5e1" material="opacity: 0.6; transparent: true"></a-cone>
-        <a-cone position="0.15 0.03 -0.05" radius-bottom="0.1" radius-top="0.01" height="0.02" color="#e2e8f0" material="opacity: 0.7; transparent: true"></a-cone>
-        
-        <a-entity marker-tag="id: E3" position="0 0.5 0" rotation="90 0 -30"></a-entity>
-      </a-entity>
-
-      <!-- E4: LATENT BOOT IMPRESSION / FOOTPRINT (Floor near desk) -->
-      <a-entity id="evidence-e4" position="-1.4 0.015 -1.5" rotation="-90 0 -20" class="evidence uv-target" data-id="E4" evidence-item>
-        <a-plane width="0.22" height="0.45" material="src: #tex-footprint; transparent: true; opacity: 0.75; emissive: #000000"></a-plane>
-        <a-entity marker-tag="id: E4" position="0 0.5 0" rotation="90 0 20"></a-entity>
-      </a-entity>
-
-      <!-- E5: TAMPERED ELECTRONIC SAFE (Inside wall cavity) -->
-      <a-entity id="evidence-e5" position="0.6 1.9 -3.38" class="evidence" data-id="E5" evidence-item>
-        <a-box width="0.4" height="0.4" depth="0.05" visible="false"></a-box>
-        <a-entity marker-tag="id: E5" position="0 0.45 0.1"></a-entity>
-      </a-entity>
-
-      <!-- E6: TORN LEDGER PAPER FRAGMENT (Floor under desk edge) -->
-      <a-entity id="evidence-e6" position="-1.65 0.01 -2.7" rotation="-90 0 15" class="evidence" data-id="E6" evidence-item>
-        <a-plane width="0.2" height="0.28" material="src: #tex-paper-fragment; roughness: 0.9"></a-plane>
-        <a-entity marker-tag="id: E6" position="0 0.4 0" rotation="90 0 -15"></a-entity>
-      </a-entity>
-
-      <!-- E7: ENCRYPTED USB FLASH DRIVE (Hidden under Sofa edge) -->
-      <a-entity id="evidence-e7" position="1.8 0.04 -0.4" rotation="0 45 0" class="evidence" data-id="E7" evidence-item>
-        <!-- USB Stick Geometry -->
-        <a-box width="0.04" height="0.015" depth="0.1" color="#0f172a" material="metalness: 0.5; roughness: 0.3"></a-box>
-        <a-box position="0 0 -0.06" width="0.028" height="0.008" depth="0.03" color="#94a3b8" material="metalness: 0.9"></a-box>
-        <a-cylinder position="0 0.01 0.02" radius="0.005" height="0.005" color="#0ea5e9" material="emissive: #0ea5e9; emissiveIntensity: 0.8"></a-cylinder>
-
-        <a-entity marker-tag="id: E7" position="0 0.35 0" rotation="0 -45 0"></a-entity>
-      </a-entity>
-
-    </a-entity>
-
-
-    <!-- ================================================================= -->
-    <!-- VR FLOATING CSI TABLET HUD / CASE CONCLUSION PANEL                -->
-    <!-- ================================================================= -->
-    <a-entity id="csi-vr-tablet" position="0 1.4 -1.2" rotation="-15 0 0" visible="true">
-      
-      <!-- Tablet Body -->
-      <a-plane width="1.2" height="0.8" color="#0b1329" material="roughness: 0.3; border: 2px solid #0369a1"></a-plane>
-      <a-plane position="0 0 -0.01" width="1.24" height="0.84" color="#0284c7"></a-plane>
-
-      <!-- Header Title -->
-      <a-text value="FORENSIC INVESTIGATION TABLET" align="center" position="0 0.33 0.01" scale="0.32 0.32 0.32" color="#38bdf8" font="kelsonsans"></a-text>
-
-      <!-- Progress Line -->
-      <a-plane id="tablet-progress-bar" position="-0.4 0.26 0.01" width="0.01" height="0.02" color="#0ea5e9"></a-plane>
-      <a-plane position="0 0.26 0.005" width="0.8" height="0.02" color="#1e293b"></a-plane>
-
-      <!-- Evidence Status Text -->
-      <a-text id="tablet-status-text" value="Evidence Collected: 0 / 7" align="center" position="0 0.2 0.01" scale="0.25 0.25 0.25" color="#f1f5f9"></a-text>
-
-      <!-- Content Area / Evidence Log List -->
-      <a-entity id="tablet-log-group" position="0 -0.02 0.01">
-        <a-text id="tablet-log-text" 
-                value="[E1] Knocked Lamp - Not Collected\n[E2] Latent Print - Not Collected\n[E3] Window Glass - Not Collected\n[E4] Boot Print - Not Collected\n[E5] Safe Cavity - Not Collected\n[E6] Ledger Shred - Not Collected\n[E7] Encrypted USB - Not Collected" 
-                align="left" position="-0.48 0.12 0" scale="0.2 0.2 0.2" color="#94a3b8" line-height="52">
-        </a-text>
-      </a-entity>
-
-      <!-- Interactive Deduction Button: Staged Scene vs External Burglary -->
-      <a-entity id="btn-submit-deduction" position="0 -0.28 0.02" class="ui-btn interactive">
-        <a-plane width="0.7" height="0.1" color="#0284c7" material="roughness: 0.4"></a-plane>
-        <a-text value="SOLVE CASE DEDUCTION" align="center" position="0 0 0.01" scale="0.25 0.25 0.25" color="#ffffff" font="kelsonsans"></a-text>
-      </a-entity>
-
-    </a-entity>
-
-  </a-scene>
-
-  <!-- ================================================================= -->
-  <!-- JAVASCRIPT LOGIC, COMPONENTS & PROCEDURAL TEXTURES               -->
-  <!-- ================================================================= -->
   <script>
-    /* ----------------------------------------------------------------- */
-    /* 1. PROCEDURAL CANVAS TEXTURE GENERATOR                            */
-    /* ----------------------------------------------------------------- */
-    function createProceduralTextures() {
-      const assets = document.querySelector('a-assets');
-
-      // Helper function to turn canvas into A-Frame img asset
-      function addCanvasAsset(id, width, height, drawFn) {
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        drawFn(ctx, width, height);
-        
-        const img = document.createElement('img');
-        img.id = id;
-        img.src = canvas.toDataURL('image/png');
-        assets.appendChild(img);
-      }
-
-      // A. Wood Floor Planks
-      addCanvasAsset('tex-floor', 512, 512, (ctx, w, h) => {
-        ctx.fillStyle = '#2d1f14';
-        ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = '#18100a';
-        ctx.lineWidth = 4;
-        const plankH = h / 8;
-        for (let i = 0; i <= 8; i++) {
-          ctx.beginPath();
-          ctx.moveTo(0, i * plankH);
-          ctx.lineTo(w, i * plankH);
-          ctx.stroke();
-        }
-        // Wood grain noise
-        ctx.fillStyle = 'rgba(0,0,0,0.08)';
-        for (let j = 0; j < 300; j++) {
-          ctx.fillRect(Math.random() * w, Math.random() * h, Math.random() * 80, 2);
-        }
-      });
-
-      // B. Modern Wallpaper Pattern
-      addCanvasAsset('tex-wall', 512, 512, (ctx, w, h) => {
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
-        ctx.lineWidth = 2;
-        const step = 64;
-        for (let x = 0; x < w; x += step) {
-          for (let y = 0; y < h; y += step) {
-            ctx.strokeRect(x + 8, y + 8, step - 16, step - 16);
-          }
-        }
-      });
-
-      // C. Carpet Rug Texture
-      addCanvasAsset('tex-rug', 512, 512, (ctx, w, h) => {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, w, h);
-        ctx.strokeStyle = '#0284c7';
-        ctx.lineWidth = 12;
-        ctx.strokeRect(20, 20, w - 40, h - 40);
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(40, 40, w - 80, h - 80);
-      });
-
-      // D. Framed Wall Painting Art
-      addCanvasAsset('tex-art', 512, 512, (ctx, w, h) => {
-        const grad = ctx.createLinearGradient(0, 0, w, h);
-        grad.addColorStop(0, '#0f172a');
-        grad.addColorStop(0.5, '#0369a1');
-        grad.addColorStop(1, '#f59e0b');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 32px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('ABSTRACT FORENSICS', w / 2, h / 2);
-      });
-
-      // E. Latent Fingerprint Texture
-      addCanvasAsset('tex-fingerprint', 256, 256, (ctx, w, h) => {
-        ctx.clearRect(0, 0, w, h);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3;
-        const cx = w / 2, cy = h / 2;
-        for (let r = 10; r < 90; r += 7) {
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, r, r * 1.3, Math.PI / 6, 0, Math.PI * 1.8);
-          ctx.stroke();
-        }
-      });
-
-      // F. Boot Tread Footprint Pattern
-      addCanvasAsset('tex-footprint', 256, 512, (ctx, w, h) => {
-        ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = '#ffffff';
-        // Heel
-        ctx.fillRect(60, 340, 136, 120);
-        // Sole
-        ctx.beginPath();
-        ctx.ellipse(128, 180, 80, 140, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Sole tread grooves
-        ctx.fillStyle = '#000000';
-        for (let y = 80; y < 280; y += 30) {
-          ctx.fillRect(60, y, 136, 10);
-        }
-      });
-
-      // G. Glass Fracture Stress Cracks (Outward Radial Lines)
-      addCanvasAsset('tex-glass-cracks', 512, 512, (ctx, w, h) => {
-        ctx.clearRect(0, 0, w, h);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        const cx = w / 2, cy = h / 2;
-        // Radial crack lines pointing OUTWARD (key forensic clue)
-        for (let i = 0; i < 16; i++) {
-          const angle = (i / 16) * Math.PI * 2;
-          ctx.beginPath();
-          ctx.moveTo(cx, cy);
-          ctx.lineTo(cx + Math.cos(angle) * 240, cy + Math.sin(angle) * 240);
-          ctx.stroke();
-        }
-        // Concentric stress rings
-        for (let r = 40; r < 200; r += 45) {
-          ctx.beginPath();
-          ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      });
-
-      // H. Torn Ledger Paper Fragment
-      addCanvasAsset('tex-paper-fragment', 256, 256, (ctx, w, h) => {
-        ctx.fillStyle = '#fef3c7';
-        ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 16px monospace';
-        ctx.fillText('CONFIDENTIAL LEDGER', 20, 40);
-        ctx.fillText('ACC #: 9402-8812-X', 20, 70);
-        ctx.fillText('TRANSFER: $450,000', 20, 100);
-        ctx.fillStyle = '#dc2626';
-        ctx.fillText('STAGED BURGLARY?', 20, 150);
-      });
-    }
-
-
-    /* ----------------------------------------------------------------- */
-    /* 2. WEB AUDIO API SYNTHESIZER FOR SFX                              */
-    /* ----------------------------------------------------------------- */
-    class SoundFX {
-      constructor() {
-        this.ctx = null;
-      }
-
-      init() {
-        if (!this.ctx) {
-          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-      }
-
-      play(type) {
-        this.init();
-        if (!this.ctx) return;
-
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        if (type === 'hover') {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(600, now);
-          osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
-          gain.gain.setValueAtTime(0.05, now);
-          gain.gain.linearRampToValueAtTime(0, now + 0.05);
-          osc.start(now);
-          osc.stop(now + 0.05);
-        } 
-        else if (type === 'click') {
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(400, now);
-          osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
-          gain.gain.setValueAtTime(0.2, now);
-          gain.gain.linearRampToValueAtTime(0, now + 0.08);
-          osc.start(now);
-          osc.stop(now + 0.08);
-        }
-        else if (type === 'collect') {
-          // 3-note ascending chime
-          [523.25, 659.25, 783.99].forEach((freq, i) => {
-            const o = this.ctx.createOscillator();
-            const g = this.ctx.createGain();
-            o.type = 'sine';
-            o.frequency.setValueAtTime(freq, now + i * 0.08);
-            g.gain.setValueAtTime(0.2, now + i * 0.08);
-            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
-            o.connect(g);
-            g.connect(this.ctx.destination);
-            o.start(now + i * 0.08);
-            o.stop(now + i * 0.08 + 0.25);
-          });
-        }
-        else if (type === 'uv') {
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(150, now);
-          osc.frequency.exponentialRampToValueAtTime(450, now + 0.2);
-          gain.gain.setValueAtTime(0.15, now);
-          gain.gain.linearRampToValueAtTime(0, now + 0.2);
-          osc.start(now);
-          osc.stop(now + 0.2);
-        }
-        else if (type === 'success') {
-          // Victory Fanfare
-          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-            const o = this.ctx.createOscillator();
-            const g = this.ctx.createGain();
-            o.type = 'triangle';
-            o.frequency.setValueAtTime(freq, now + i * 0.12);
-            g.gain.setValueAtTime(0.25, now + i * 0.12);
-            g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
-            o.connect(g);
-            g.connect(this.ctx.destination);
-            o.start(now + i * 0.12);
-            o.stop(now + i * 0.12 + 0.4);
-          });
-        }
-      }
-    }
-    const sfx = new SoundFX();
-
-
-    /* ----------------------------------------------------------------- */
-    /* 3. FORENSIC EVIDENCE DATABASE                                     */
-    /* ----------------------------------------------------------------- */
-    const EVIDENCE_DB = {
-      E1: {
-        id: 'E1',
-        title: 'Overturned Brass Desk Lamp',
-        desc: 'A heavy brass lamp pushed off the executive desk during an apparent struggle or staged disturbance.',
-        forensic: 'Shows heavy metallic surface suitable for latent fingerprint extraction.',
+    /* ================================================================
+       1. CENTRAL EVIDENCE DATABASE (CRITICAL REQUIREMENT)
+       ================================================================ */
+    const evidenceDatabase = {
+      E01: {
+        id: "E01",
+        name: "Suspicious Brass Key",
+        type: "Physical Evidence",
+        location: "Living Room Table",
+        description: "A heavy brass key found resting near the broken lock mechanism. Appears to match the penthouse private safe.",
+        discovered: false,
         collected: false
       },
-      E2: {
-        id: 'E2',
-        title: 'Latent Fingerprint Trace',
-        desc: 'High-contrast friction ridge impression on the base of the overturned desk lamp.',
-        forensic: 'Print matches victim’s business partner, who claimed he was never in the apartment today.',
+      E02: {
+        id: "E02",
+        name: "Burner Mobile Phone",
+        type: "Digital Evidence",
+        location: "Victim's Desk",
+        description: "Screen cracked with an active unread message: 'The transfer failed. We are coming tonight.' Timestamp 11:42 PM.",
+        discovered: false,
         collected: false
       },
-      E3: {
-        id: 'E3',
-        title: 'Outward Window Glass Fracture',
-        desc: 'Shattered glass shards lying on the exterior ledge and sill near the window frame.',
-        forensic: 'CRITICAL: Radial fracture stress lines prove force was applied from INSIDE the room pushing OUTWARD. The window break was staged!',
+      E03: {
+        id: "E03",
+        name: "Shattered Crystal Glass",
+        type: "Physical Evidence",
+        location: "Bar / Kitchen Entrance",
+        description: "Broken whiskey tumbler with traces of an unidentified sedative powder along the fractured rim.",
+        discovered: false,
         collected: false
       },
-      E4: {
-        id: 'E4',
-        title: 'Size 10 Boot Impression',
-        desc: 'Latent footprint on the floor mat near the desk, visible under UV illumination.',
-        forensic: 'Tread wear pattern matches standard issue work boots owned by the suspect.',
+      E04: {
+        id: "E04",
+        name: "Torn Ransom Note",
+        type: "Documentary Evidence",
+        location: "Fireplace Mantel",
+        description: "Half-burned parchment reading: 'Deliver the ledger by midnight or the syndicate executes the contingency.'",
+        discovered: false,
         collected: false
       },
-      E5: {
-        id: 'E5',
-        title: 'Tampered Electronic Wall Safe',
-        desc: 'Concealed safe revealed behind the tilted painting. Digital lock bypassed with master keycard.',
-        forensic: 'No sign of forced mechanical entry. Opened by someone with authorized digital clearance.',
+      E05: {
+        id: "E05",
+        name: "Bloody Forensic Knife",
+        type: "Weapon / Physical Evidence",
+        location: "Bookshelf Corner",
+        description: "6-inch tactical folding blade with clear fingerprint ridge details in dried blood spatter along the composite hilt.",
+        discovered: false,
         collected: false
       },
-      E6: {
-        id: 'E6',
-        title: 'Torn Financial Ledger Fragment',
-        desc: 'Shredded paper scrap found tucked under the desk edge.',
-        forensic: 'Lists wire transfer account numbers totaling $450,000 linked to corporate embezzlement.',
+      E06: {
+        id: "E06",
+        name: "Encrypted USB Flash Drive",
+        type: "Digital Evidence",
+        location: "Under TV Media Unit",
+        description: "Military-grade encrypted cold storage hardware key containing offshore financial records.",
+        discovered: false,
         collected: false
       },
-      E7: {
-        id: 'E7',
-        title: 'Encrypted USB Flash Drive',
-        desc: 'Discreet black USB storage drive hidden under the leather sofa edge.',
-        forensic: 'Contains backup logs of altered financial transactions before the break-in was reported.',
+      E07: {
+        id: "E07",
+        name: "Victim's Leather Wallet",
+        type: "Physical Evidence",
+        location: "Near Chalk Outline",
+        description: "Black Italian leather wallet. ID belongs to Dr. Marcus Vance. Cash untouched, but security access pass missing.",
+        discovered: false,
+        collected: false
+      },
+      E08: {
+        id: "E08",
+        name: "Chemical Flask with Residue",
+        type: "Chemical / Toxicology",
+        location: "Laboratory Cart",
+        description: "Sealed borosilicate vial containing synthetic neurotoxin precursors with volatile vapor residue.",
+        discovered: false,
         collected: false
       }
     };
 
+    /* ================================================================
+       INVESTIGATION STATE
+       ================================================================ */
+    const state = {
+      targetedId: null,
+      targetedEl: null,
+      grabbedId: null,
+      grabbedEl: null,
+      grabDistance: 1.5,
+      activeModal: null, // 'case_file', 'inventory', 'inspect', 'victory', null
+      inspectedId: null,
+      lastAction: "SIMULATION READY",
+      totalEvidence: 8
+    };
 
-    /* ----------------------------------------------------------------- */
-    /* 4. CUSTOM A-FRAME COMPONENTS                                      */
-    /* ----------------------------------------------------------------- */
+    function getCollectedCount() {
+      return Object.values(evidenceDatabase).filter(e => e.collected).length;
+    }
 
-    // A. 3D Yellow Marker Tag Component
-    AFRAME.registerComponent('marker-tag', {
-      schema: { id: { type: 'string', default: 'E1' } },
-      init: function () {
-        const el = this.el;
-        
-        // Yellow Card
-        const card = document.createElement('a-plane');
-        card.setAttribute('width', '0.18');
-        card.setAttribute('height', '0.22');
-        card.setAttribute('color', '#f59e0b');
-        card.setAttribute('material', 'roughness: 0.3; side: double');
-        card.setAttribute('rotation', '0 0 0');
-
-        // Text ID
-        const text = document.createElement('a-text');
-        text.setAttribute('value', this.data.id);
-        text.setAttribute('align', 'center');
-        text.setAttribute('color', '#000000');
-        text.setAttribute('scale', '0.45 0.45 0.45');
-        text.setAttribute('position', '0 0 0.01');
-        text.setAttribute('font', 'kelsonsans');
-
-        card.appendChild(text);
-        el.appendChild(card);
-
-        // Subtle floating bounce animation
-        el.setAttribute('animation', {
-          property: 'position',
-          dir: 'alternate',
-          dur: 1600,
-          easing: 'easeInOutSine',
-          loop: true,
-          to: `${el.object3D.position.x} ${el.object3D.position.y + 0.06} ${el.object3D.position.z}`
-        });
+    /* ================================================================
+       SYNTHESIZED FORENSIC AUDIO ENGINE (Web Audio API)
+       ================================================================ */
+    class ForensicAudioEngine {
+      constructor() {
+        this.ctx = null;
       }
-    });
-
-    // B. Interactive Evidence Item Component
-    AFRAME.registerComponent('evidence-item', {
-      init: function () {
-        const el = this.el;
-        const id = el.getAttribute('data-id');
-
-        el.addEventListener('mouseenter', () => {
-          sfx.play('hover');
-          el.setAttribute('scale', '1.1 1.1 1.1');
-        });
-
-        el.addEventListener('mouseleave', () => {
-          el.setAttribute('scale', '1.0 1.0 1.0');
-        });
-
-        el.addEventListener('click', () => {
-          sfx.play('click');
-          window.CSI_SYSTEM.openInspector(id);
-        });
-      }
-    });
-
-    // C. Quest 3 Joystick Movement & Snap Turning Component
-    AFRAME.registerComponent('movement-controls-quest', {
-      init: function () {
-        this.leftController = document.querySelector('#left-controller');
-        this.rightController = document.querySelector('#right-controller');
-        this.rig = this.el;
-        this.snapTurnCooldown = false;
-
-        if (this.leftController) {
-          this.leftController.addEventListener('axismove', (evt) => {
-            // Left Stick Movement (Axes: 2 = X, 3 = Y)
-            const axes = evt.detail.axis;
-            if (axes && axes.length >= 4) {
-              const dx = axes[2];
-              const dz = axes[3];
-              if (Math.abs(dx) > 0.15 || Math.abs(dz) > 0.15) {
-                const speed = 0.04;
-                this.rig.object3D.translateX(dx * speed);
-                this.rig.object3D.translateZ(dz * speed);
-              }
-            }
-          });
-        }
-
-        if (this.rightController) {
-          this.rightController.addEventListener('axismove', (evt) => {
-            // Right Stick Snap Turn
-            const axes = evt.detail.axis;
-            if (axes && axes.length >= 4) {
-              const dx = axes[2];
-              if (Math.abs(dx) > 0.6 && !this.snapTurnCooldown) {
-                const turnAngle = dx > 0 ? -45 : 45;
-                this.rig.object3D.rotation.y += THREE.MathUtils.degToRad(turnAngle);
-                this.snapTurnCooldown = true;
-                setTimeout(() => { this.snapTurnCooldown = false; }, 400);
-              }
-            }
-          });
-        }
-      }
-    });
-
-    // D. Main CSI Game Master Controller
-    AFRAME.registerComponent('csi-game-master', {
-      init: function () {
-        window.CSI_SYSTEM = this;
-        this.collectedCount = 0;
-        this.uvActive = false;
-
-        // Initialize UI Events
-        this.setupUIEvents();
-      },
-
-      setupUIEvents: function () {
-        // Desktop Toolbar Buttons
-        document.getElementById('btn-toggle-uv').addEventListener('click', () => this.toggleUV());
-        document.getElementById('btn-toggle-tablet').addEventListener('click', () => this.toggleTabletVR());
-        document.getElementById('btn-reset').addEventListener('click', () => this.resetGame());
-
-        // Inspector Buttons
-        document.getElementById('insp-btn-close').addEventListener('click', () => this.closeInspector());
-        document.getElementById('insp-btn-collect').addEventListener('click', () => {
-          if (this.currentInspectedId) {
-            this.collectEvidence(this.currentInspectedId);
-            this.closeInspector();
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
           }
-        });
-
-        // Keybind Shortcuts (F for UV, Tab for Tablet)
-        window.addEventListener('keydown', (e) => {
-          if (e.key === 'f' || e.key === 'F') this.toggleUV();
-          if (e.key === 'Tab') {
-            e.preventDefault();
-            this.toggleTabletVR();
-          }
-        });
-
-        // VR Tablet Deduction Button Click
-        const btnDeduction = document.getElementById('btn-submit-deduction');
-        if (btnDeduction) {
-          btnDeduction.addEventListener('click', () => this.solveDeduction());
         }
-      },
-
-      toggleUV: function () {
-        this.uvActive = !this.uvActive;
-        sfx.play('uv');
-
-        const uvLight = document.getElementById('uv-light-entity');
-        const cameraUvMesh = document.getElementById('camera-uv-mesh');
-        const uvBeamCone = document.getElementById('uv-beam-cone');
-        const btnUv = document.getElementById('btn-toggle-uv');
-
-        if (this.uvActive) {
-          uvLight.setAttribute('light', 'intensity', 3.5);
-          cameraUvMesh.setAttribute('visible', 'true');
-          uvBeamCone.setAttribute('visible', 'true');
-          btnUv.classList.add('active');
-
-          // Illuminate UV Target Materials
-          document.querySelectorAll('.uv-target').forEach(el => {
-            const childPlane = el.querySelector('a-plane');
-            if (childPlane) {
-              childPlane.setAttribute('material', 'emissive', '#38bdf8');
-              childPlane.setAttribute('material', 'emissiveIntensity', '0.9');
-            }
-          });
-        } else {
-          uvLight.setAttribute('light', 'intensity', 0);
-          cameraUvMesh.setAttribute('visible', 'false');
-          uvBeamCone.setAttribute('visible', 'false');
-          btnUv.classList.remove('active');
-
-          document.querySelectorAll('.uv-target').forEach(el => {
-            const childPlane = el.querySelector('a-plane');
-            if (childPlane) {
-              childPlane.setAttribute('material', 'emissive', '#000000');
-              childPlane.setAttribute('material', 'emissiveIntensity', '0');
-            }
-          });
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
         }
-      },
+      }
+      playBlip(freq = 600, duration = 0.08, type = 'sine') {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      }
+      playTargetAcquired() {
+        this.playBlip(880, 0.05, 'triangle');
+      }
+      playGrabSound() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.14);
+          gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.16);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.16);
+        } catch(e) {}
+      }
+      playReleaseSound() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(550, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.14);
+          gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.16);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.16);
+        } catch(e) {}
+      }
+      playCollectFanfare() {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, idx) => {
+            setTimeout(() => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+              gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start();
+              osc.stop(this.ctx.currentTime + 0.25);
+            }, idx * 80);
+          });
+        } catch(e) {}
+      }
+    }
+    const audio = new ForensicAudioEngine();
 
-      toggleTabletVR: function () {
-        const tablet = document.getElementById('csi-vr-tablet');
-        const isVisible = tablet.getAttribute('visible');
-        tablet.setAttribute('visible', !isVisible);
-        sfx.play('click');
-      },
+    /* ================================================================
+       CORE HELPER: TOAST & DEBUG PANEL UPDATE
+       ================================================================ */
+    function showToast(msg) {
+      const toast = document.getElementById('action-toast');
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2200);
+    }
 
-      openInspector: function (id) {
-        const item = EVIDENCE_DB[id];
-        if (!item) return;
+    function updateDebugPanel() {
+      const dbgTarget = document.getElementById('dbg-target');
+      const dbgGrabbed = document.getElementById('dbg-grabbed');
+      const dbgEviId = document.getElementById('dbg-evi-id');
+      const dbgCollected = document.getElementById('dbg-collected');
+      const dbgAction = document.getElementById('dbg-action');
 
-        this.currentInspectedId = id;
-        document.getElementById('insp-title').textContent = item.title;
-        document.getElementById('insp-tag').textContent = item.id;
-        document.getElementById('insp-desc').textContent = item.desc;
-        document.getElementById('insp-forensic').textContent = item.forensic;
-        
-        const collectBtn = document.getElementById('insp-btn-collect');
-        if (item.collected) {
-          collectBtn.textContent = 'Already Logged';
-          collectBtn.style.background = '#475569';
+      if (dbgTarget) {
+        dbgTarget.textContent = state.targetedId ? evidenceDatabase[state.targetedId].name : 'NONE';
+      }
+      if (dbgGrabbed) {
+        dbgGrabbed.textContent = state.grabbedId ? 'YES' : 'NO';
+      }
+      if (dbgEviId) {
+        dbgEviId.textContent = state.grabbedId || state.targetedId || 'NONE';
+      }
+      if (dbgCollected) {
+        dbgCollected.textContent = `${getCollectedCount()} / ${state.totalEvidence}`;
+      }
+      if (dbgAction) {
+        dbgAction.textContent = state.lastAction;
+      }
+
+      // Top counter pill
+      const topCount = document.getElementById('top-collected-counter');
+      if (topCount) {
+        topCount.textContent = `${getCollectedCount()} / ${state.totalEvidence}`;
+      }
+    }
+
+    /* ================================================================
+       2. CLICK / KEY TO GRAB
+       ================================================================ */
+    function grabEvidence(evidenceId, el) {
+      if (!evidenceId || !el || !evidenceDatabase[evidenceId]) return;
+      if (state.grabbedId) {
+        releaseEvidence(true);
+        return;
+      }
+
+      state.grabbedId = evidenceId;
+      state.grabbedEl = el;
+      state.lastAction = "GRABBED";
+
+      audio.playGrabSound();
+
+      // Immediately move object in front of camera
+      const cameraEl = document.getElementById('camera');
+      if (cameraEl && cameraEl.object3D && el.object3D) {
+        const camObj = cameraEl.object3D;
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camObj.quaternion);
+        const camWorldPos = new THREE.Vector3();
+        camObj.getWorldPosition(camWorldPos);
+
+        const targetPos = camWorldPos.clone().add(forward.multiplyScalar(state.grabDistance));
+        el.object3D.position.copy(targetPos);
+      }
+
+      showToast(`HOLDING: Evidence #${evidenceId} — ${evidenceDatabase[evidenceId].name}`);
+
+      const crosshairContainer = document.getElementById('crosshair-container');
+      if (crosshairContainer) crosshairContainer.classList.add('holding');
+
+      const holdingBanner = document.getElementById('holding-banner');
+      if (holdingBanner) {
+        holdingBanner.innerHTML = `HOLDING: <strong>${evidenceId} — ${evidenceDatabase[evidenceId].name}</strong> <span style="opacity:0.8; font-size:11px; margin-left:8px;">[Press G to Release | C to Collect]</span>`;
+        holdingBanner.style.display = 'block';
+      }
+
+      updateDebugPanel();
+    }
+
+    /* ================================================================
+       3. RELEASE HELD EVIDENCE
+       ================================================================ */
+    function releaseEvidence(playSound = true) {
+      if (!state.grabbedId || !state.grabbedEl) return;
+
+      const el = state.grabbedEl;
+      const cameraEl = document.getElementById('camera');
+
+      if (cameraEl && cameraEl.object3D && el.object3D) {
+        const camObj = cameraEl.object3D;
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camObj.quaternion);
+        const camWorldPos = new THREE.Vector3();
+        camObj.getWorldPosition(camWorldPos);
+
+        const dropPos = camWorldPos.clone().add(forward.multiplyScalar(1.0));
+        if (dropPos.y < 0.2) dropPos.y = 0.2;
+        el.object3D.position.copy(dropPos);
+      }
+
+      if (playSound) {
+        audio.playReleaseSound();
+        showToast("OBJECT RELEASED");
+        state.lastAction = "RELEASED";
+      }
+
+      state.grabbedId = null;
+      state.grabbedEl = null;
+
+      const crosshairContainer = document.getElementById('crosshair-container');
+      if (crosshairContainer) crosshairContainer.classList.remove('holding');
+
+      const holdingBanner = document.getElementById('holding-banner');
+      if (holdingBanner) holdingBanner.style.display = 'none';
+
+      updateDebugPanel();
+    }
+
+    /* ================================================================
+       4. INSPECTION (E KEY)
+       ================================================================ */
+    function openInspection(evidenceId) {
+      if (!evidenceId || !evidenceDatabase[evidenceId]) return;
+      const evi = evidenceDatabase[evidenceId];
+      state.inspectedId = evidenceId;
+
+      const body = document.getElementById('inspect-card-body');
+      if (!body) return;
+
+      body.innerHTML = `
+        <div class="inspect-card-content">
+          <div class="inspect-top-block">
+            <div class="inspect-tag-id">FORENSIC RECORD: #${evi.id}</div>
+            <div class="inspect-item-title">${evi.name}</div>
+          </div>
+          <div class="inspect-2col">
+            <div class="inspect-meta-cell">
+              <div class="lbl">CLASSIFICATION</div>
+              <div class="txt">${evi.type}</div>
+            </div>
+            <div class="inspect-meta-cell">
+              <div class="lbl">LOCATION</div>
+              <div class="txt">${evi.location}</div>
+            </div>
+          </div>
+          <div class="inspect-narrative">
+            <p>${evi.description}</p>
+          </div>
+          <div class="inspect-status-indicator" style="border: 1px solid ${evi.collected ? 'var(--success)' : '#64748b'};">
+            <span>STATUS:</span>
+            <strong style="color: ${evi.collected ? 'var(--success)' : '#fbbf24'};">
+              ${evi.collected ? 'COLLECTED ✓' : 'UNCOLLECTED'}
+            </strong>
+          </div>
+        </div>
+      `;
+
+      // Configure bottom button in inspect modal
+      const collectBtn = document.getElementById('inspect-btn-collect');
+      if (collectBtn) {
+        if (evi.collected) {
+          collectBtn.textContent = 'ALREADY COLLECTED ✓';
           collectBtn.disabled = true;
+          collectBtn.style.opacity = '0.6';
         } else {
-          collectBtn.textContent = 'Collect Evidence';
-          collectBtn.style.background = '#0284c7';
+          collectBtn.textContent = 'COLLECT EVIDENCE';
           collectBtn.disabled = false;
+          collectBtn.style.opacity = '1';
         }
+      }
 
-        document.getElementById('inspector-overlay').style.display = 'flex';
-      },
+      openModal('inspect');
+      state.lastAction = "INSPECTED";
+      updateDebugPanel();
+    }
 
-      closeInspector: function () {
-        document.getElementById('inspector-overlay').style.display = 'none';
-        this.currentInspectedId = null;
-      },
+    /* ================================================================
+       5. CENTRAL COLLECT EVIDENCE FUNCTION (CRITICAL REQUIREMENT)
+       ================================================================ */
+    function collectEvidence(evidenceId) {
+      if (!evidenceId || !evidenceDatabase[evidenceId]) return;
+      const evi = evidenceDatabase[evidenceId];
 
-      collectEvidence: function (id) {
-        const item = EVIDENCE_DB[id];
-        if (!item || item.collected) return;
+      if (evi.collected) {
+        showToast(`ALREADY COLLECTED: ${evi.name}`);
+        return;
+      }
 
-        item.collected = true;
-        this.collectedCount++;
-        sfx.play('collect');
+      // 1. Update data
+      evi.collected = true;
+      evi.discovered = true;
 
-        // Update 2D HUD
-        document.getElementById('hud-status').textContent = `Evidence Collected: ${this.collectedCount} / 7`;
+      // 2. Release if held
+      if (state.grabbedId === evidenceId) {
+        releaseEvidence(false);
+      }
 
-        // Update VR Tablet Progress
-        const tabletProgress = document.getElementById('tablet-progress-bar');
-        if (tabletProgress) {
-          const ratio = this.collectedCount / 7;
-          tabletProgress.setAttribute('width', (0.8 * ratio).toFixed(2));
-          tabletProgress.setAttribute('position', `${-0.4 + (0.4 * ratio)} 0.26 0.01`);
+      // 3. Audio feedback
+      audio.playCollectFanfare();
+
+      // 4. Mark visually in 3D scene
+      const el = document.querySelector(`[data-evidence-id="${evidenceId}"]`);
+      if (el) {
+        el.setAttribute('material', 'opacity: 0.35; transparent: true; wireframe: true; color: #00ff88');
+        const beacon = document.createElement('a-entity');
+        beacon.setAttribute('geometry', 'primitive: cone; radiusBottom: 0.12; radiusTop: 0; height: 0.25');
+        beacon.setAttribute('material', 'color: #00ff88; emissive: #00ff88; emissiveIntensity: 0.9');
+        beacon.setAttribute('position', '0 0.35 0');
+        beacon.setAttribute('rotation', '180 0 0');
+        beacon.setAttribute('animation', 'property: position; to: 0 0.45 0; dir: alternate; dur: 1000; loop: true; easing: easeInOutSine');
+        el.appendChild(beacon);
+      }
+
+      // 5. Update state & UI
+      state.lastAction = "COLLECTED";
+      showToast("✓ EVIDENCE COLLECTED");
+
+      // If inspect modal is open, re-render it
+      if (state.activeModal === 'inspect' && state.inspectedId === evidenceId) {
+        openInspection(evidenceId);
+      }
+
+      updateDebugPanel();
+      renderCaseFile();
+      renderInventory();
+
+      // Check Victory condition
+      if (getCollectedCount() === state.totalEvidence) {
+        setTimeout(() => {
+          openModal('victory');
+        }, 600);
+      }
+    }
+
+    /* ================================================================
+       6. MODAL MANAGER (CASE, INVENTORY, INSPECT)
+       ================================================================ */
+    function openModal(modalName) {
+      closeAllModals();
+      state.activeModal = modalName;
+      audio.playBlip(720, 0.08, 'sine');
+
+      const el = document.getElementById(`${modalName}-modal`);
+      if (el) el.classList.add('open');
+
+      if (modalName === 'case') renderCaseFile();
+      if (modalName === 'inventory') renderInventory();
+    }
+
+    function closeAllModals() {
+      const modals = document.querySelectorAll('.modal-backdrop');
+      modals.forEach(m => m.classList.remove('open'));
+      state.activeModal = null;
+    }
+
+    function toggleCaseModal() {
+      if (state.activeModal === 'case') {
+        closeAllModals();
+      } else {
+        openModal('case');
+      }
+    }
+
+    function toggleInventoryModal() {
+      if (state.activeModal === 'inventory') {
+        closeAllModals();
+      } else {
+        openModal('inventory');
+      }
+    }
+
+    /* ================================================================
+       7. DYNAMIC UI RENDERERS
+       ================================================================ */
+    function renderCaseFile() {
+      const eviContainer = document.getElementById('case-evidence-grid');
+      const progBar = document.getElementById('case-prog-bar');
+      const progPct = document.getElementById('case-prog-pct');
+      const countEl = document.getElementById('case-collected-stat');
+
+      const count = getCollectedCount();
+      const pct = Math.round((count / state.totalEvidence) * 100);
+
+      if (countEl) countEl.textContent = `${count} / ${state.totalEvidence}`;
+      if (progBar) progBar.style.width = `${pct}%`;
+      if (progPct) progPct.textContent = `${pct}%`;
+
+      if (eviContainer) {
+        eviContainer.innerHTML = Object.values(evidenceDatabase).map(evi => `
+          <div class="case-evi-node ${evi.collected ? 'collected' : ''}">
+            <div>
+              <strong>${evi.id}</strong> — ${evi.name}
+            </div>
+            <span class="evi-badge-pill">
+              ${evi.collected ? 'COLLECTED ✓' : 'UNCOLLECTED'}
+            </span>
+          </div>
+        `).join('');
+      }
+
+      // Update objectives
+      const obj1 = document.getElementById('obj-1');
+      const obj2 = document.getElementById('obj-2');
+      const obj3 = document.getElementById('obj-3');
+      const obj4 = document.getElementById('obj-4');
+
+      if (obj1) {
+        obj1.className = `obj-item-box ${count >= 1 ? 'done' : ''}`;
+        obj1.querySelector('.obj-mark').textContent = count >= 1 ? '✓' : '☐';
+      }
+      if (obj2) {
+        const hasDigital = evidenceDatabase.E02.collected && evidenceDatabase.E06.collected;
+        obj2.className = `obj-item-box ${hasDigital ? 'done' : ''}`;
+        obj2.querySelector('.obj-mark').textContent = hasDigital ? '✓' : '☐';
+      }
+      if (obj3) {
+        const hasHazard = evidenceDatabase.E05.collected && evidenceDatabase.E08.collected;
+        obj3.className = `obj-item-box ${hasHazard ? 'done' : ''}`;
+        obj3.querySelector('.obj-mark').textContent = hasHazard ? '✓' : '☐';
+      }
+      if (obj4) {
+        obj4.className = `obj-item-box ${count === 8 ? 'done' : ''}`;
+        obj4.querySelector('.obj-mark').textContent = count === 8 ? '✓' : '☐';
+      }
+    }
+
+    function renderInventory() {
+      const list = document.getElementById('inventory-stack-container');
+      const countEl = document.getElementById('inv-counter-display');
+      const collected = Object.values(evidenceDatabase).filter(e => e.collected);
+
+      if (countEl) {
+        countEl.textContent = `${collected.length} / ${state.totalEvidence}`;
+      }
+
+      if (list) {
+        if (collected.length === 0) {
+          list.innerHTML = `
+            <div style="text-align: center; padding: 30px; color: var(--text-dim); font-family: var(--mono); font-size: 13px;">
+              [ NO EVIDENCE COLLECTED YET ]<br>
+              Aim crosshair at evidence and Left-Click to Grab or press <strong style="color:var(--accent);">[C]</strong> to collect.
+            </div>
+          `;
+        } else {
+          list.innerHTML = collected.map(item => `
+            <div class="inv-item-card secured">
+              <div>
+                <div class="name">✓ ${item.id} — ${item.name}</div>
+                <div class="sub">${item.type} | Location: ${item.location}</div>
+              </div>
+              <span class="evi-badge-pill" style="background: rgba(0, 255, 136, 0.2); color: var(--success); font-weight: 700;">SECURED</span>
+            </div>
+          `).join('');
         }
+      }
+    }
 
-        document.getElementById('tablet-status-text').setAttribute('value', `Evidence Collected: ${this.collectedCount} / 7`);
+    /* ================================================================
+       8. KEYBOARD & MOUSE EVENT LISTENERS
+       ================================================================ */
+    window.addEventListener('keydown', (e) => {
+      audio.init();
 
-        // Update Tablet Log Text
-        let logLines = [];
-        Object.values(EVIDENCE_DB).forEach(ev => {
-          const status = ev.collected ? 'LOGGED' : 'Not Collected';
-          logLines.push(`[${ev.id}] ${ev.title.substring(0, 18)} - ${status}`);
-        });
-        document.getElementById('tablet-log-text').setAttribute('value', logLines.join('\n'));
+      // TAB: Open/Close Case File
+      if (e.key === 'Tab' || e.code === 'Tab') {
+        e.preventDefault();
+        toggleCaseModal();
+        return;
+      }
 
-        // Hide collected 3D marker tag
-        const evEntity = document.getElementById(`evidence-${id.toLowerCase()}`);
-        if (evEntity) {
-          const markerTag = evEntity.querySelector('[marker-tag]');
-          if (markerTag) markerTag.setAttribute('visible', 'false');
+      // ESC: Close open panel or drop evidence
+      if (e.key === 'Escape' || e.code === 'Escape') {
+        e.preventDefault();
+        if (state.activeModal) {
+          closeAllModals();
+        } else if (state.grabbedId) {
+          releaseEvidence(true);
         }
-      },
+        return;
+      }
 
-      solveDeduction: function () {
-        if (this.collectedCount < 7) {
-          alert(`Incomplete Evidence Logged (${this.collectedCount}/7). Find all 7 forensic clues across the room before making your final case deduction!`);
-          return;
+      // I: Toggle Inventory
+      if (e.key === 'i' || e.key === 'I') {
+        e.preventDefault();
+        toggleInventoryModal();
+        return;
+      }
+
+      // G: Grab / Release
+      if (e.key === 'g' || e.key === 'G') {
+        e.preventDefault();
+        if (state.grabbedId) {
+          releaseEvidence(true);
+        } else if (state.targetedId && state.targetedEl) {
+          grabEvidence(state.targetedId, state.targetedEl);
         }
+        return;
+      }
 
-        sfx.play('success');
-        alert(
-          `🏆 CASE SOLVED - EXCELLENT FORENSIC DEDUCTION!\n\n` +
-          `Conclusion: The burglary was STAGED from the inside by the suspect.\n\n` +
-          `Key Findings:\n` +
-          `• Glass fractures point outward (broken from inside).\n` +
-          `• Safe opened with authorized master keycard.\n` +
-          `• Fingerprint & Boot impression match internal suspect.\n\n` +
-          `Forensic Accuracy Rating: 100% (Grade A+)`
-        );
-      },
-
-      resetGame: function () {
-        this.collectedCount = 0;
-        Object.keys(EVIDENCE_DB).forEach(key => {
-          EVIDENCE_DB[key].collected = false;
-        });
-
-        document.getElementById('hud-status').textContent = `Evidence Collected: 0 / 7`;
-        document.getElementById('tablet-status-text').setAttribute('value', `Evidence Collected: 0 / 7`);
-        
-        const tabletProgress = document.getElementById('tablet-progress-bar');
-        if (tabletProgress) {
-          tabletProgress.setAttribute('width', '0.01');
-          tabletProgress.setAttribute('position', '-0.4 0.26 0.01');
+      // E: Inspect
+      if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        const target = state.grabbedId || state.targetedId;
+        if (target) {
+          openInspection(target);
+        } else {
+          showToast("NO EVIDENCE TARGETED TO INSPECT");
         }
+        return;
+      }
 
-        document.querySelectorAll('[marker-tag]').forEach(el => el.setAttribute('visible', 'true'));
-        sfx.play('click');
+      // C: Collect
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        const target = state.grabbedId || state.targetedId;
+        if (target) {
+          collectEvidence(target);
+        } else {
+          showToast("NO EVIDENCE TARGETED TO COLLECT");
+        }
+        return;
       }
     });
 
-    // Initialize textures when DOM is loaded
+    // Handle Left-Click on Scene to Grab
+    window.addEventListener('mousedown', (e) => {
+      audio.init();
+
+      // Check if clicked element is an interactive HTML button/modal
+      if (e.target.closest('button') || e.target.closest('.modal-card') || e.target.closest('.top-nav-left') || e.target.closest('.top-nav-right') || e.target.closest('#debug-panel')) {
+        return; // Let standard button click handle it!
+      }
+
+      // If user left clicks the 3D scene while targeting evidence:
+      if (e.button === 0) { // Left Mouse Button
+        if (state.grabbedId) {
+          // If holding and left clicks, drop or inspect
+          releaseEvidence(true);
+        } else if (state.targetedId && state.targetedEl) {
+          grabEvidence(state.targetedId, state.targetedEl);
+        }
+      }
+    });
+
+    /* ================================================================
+       9. A-FRAME COMPONENT: DESKTOP RAYCASTER & HELD OBJECT TRACKER
+       Direct THREE.js Raycaster from center screen (0, 0)
+       ================================================================ */
+    AFRAME.registerComponent('desktop-investigation-manager', {
+      init: function() {
+        this.camera = this.el.sceneEl.camera;
+        this.raycaster = new THREE.Raycaster();
+        this.centerScreen = new THREE.Vector2(0, 0); // Center of screen!
+
+        this.cachedEvidence = [];
+        this.refreshEvidenceCache();
+      },
+
+      refreshEvidenceCache: function() {
+        this.cachedEvidence = Array.from(document.querySelectorAll('.evidence, .grabbable'));
+      },
+
+      tick: function(time, delta) {
+        const dt = Math.min(delta / 1000, 0.1);
+        const sceneCamera = this.el.sceneEl.camera;
+        if (!sceneCamera) return;
+
+        // 1. RAYCASTER FROM CENTER SCREEN
+        this.raycaster.setFromCamera(this.centerScreen, sceneCamera);
+
+        const testMeshes = [];
+        this.cachedEvidence.forEach(el => {
+          if (el.object3D) {
+            el.object3D.traverse(child => {
+              if (child.isMesh) {
+                child.userData.aframeEl = el;
+                testMeshes.push(child);
+              }
+            });
+          }
+        });
+
+        const intersects = this.raycaster.intersectObjects(testMeshes, true);
+        let currentTargetId = null;
+        let currentTargetEl = null;
+
+        if (intersects.length > 0) {
+          for (let hit of intersects) {
+            if (hit.distance <= 4.5) { // within 4.5 meters
+              const aframeEl = hit.object.userData.aframeEl;
+              if (aframeEl && aframeEl.getAttribute('data-evidence-id')) {
+                currentTargetId = aframeEl.getAttribute('data-evidence-id');
+                currentTargetEl = aframeEl;
+                break;
+              }
+            }
+          }
+        }
+
+        // Target changed
+        if (currentTargetId !== state.targetedId) {
+          // Remove previous halo
+          if (state.targetedEl) {
+            const prevHalo = state.targetedEl.querySelector('.target-ring-halo');
+            if (prevHalo) prevHalo.setAttribute('visible', 'false');
+          }
+
+          state.targetedId = currentTargetId;
+          state.targetedEl = currentTargetEl;
+
+          const crosshairContainer = document.getElementById('crosshair-container');
+          const targetHUD = document.getElementById('target-hud');
+          const hudTargetName = document.getElementById('hud-target-name');
+
+          if (currentTargetId && evidenceDatabase[currentTargetId]) {
+            const evi = evidenceDatabase[currentTargetId];
+            audio.playTargetAcquired();
+
+            if (crosshairContainer) crosshairContainer.classList.add('targeting');
+            if (targetHUD) targetHUD.classList.add('active-target');
+            if (hudTargetName) hudTargetName.textContent = `${evi.id} — ${evi.name}`;
+
+            // Add or show 3D halo ring
+            if (currentTargetEl) {
+              let halo = currentTargetEl.querySelector('.target-ring-halo');
+              if (!halo) {
+                halo = document.createElement('a-ring');
+                halo.setAttribute('class', 'target-ring-halo');
+                halo.setAttribute('radius-inner', '0.18');
+                halo.setAttribute('radius-outer', '0.24');
+                halo.setAttribute('material', 'color: #ffd700; emissive: #ffd700; emissiveIntensity: 1; side: double; transparent: true; opacity: 0.8');
+                halo.setAttribute('rotation', '-90 0 0');
+                halo.setAttribute('position', '0 0.05 0');
+                currentTargetEl.appendChild(halo);
+              }
+              halo.setAttribute('visible', 'true');
+            }
+          } else {
+            if (crosshairContainer) crosshairContainer.classList.remove('targeting');
+            if (targetHUD) targetHUD.classList.remove('active-target');
+            if (hudTargetName) hudTargetName.textContent = 'Nothing';
+          }
+
+          updateDebugPanel();
+        }
+
+        // 2. MOVE HELD EVIDENCE IN FRONT OF CAMERA
+        if (state.grabbedId && state.grabbedEl && state.grabbedEl.object3D) {
+          const camWorldPos = new THREE.Vector3();
+          sceneCamera.getWorldPosition(camWorldPos);
+
+          const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(sceneCamera.quaternion);
+          const targetPos = camWorldPos.clone().add(forward.multiplyScalar(state.grabDistance));
+
+          state.grabbedEl.object3D.position.copy(targetPos);
+          state.grabbedEl.object3D.rotation.y += 0.8 * dt;
+        }
+      }
+    });
+
+    /* ================================================================
+       10. A-FRAME COMPONENT: META QUEST 3S VR CONTROLLER
+       ================================================================ */
+    AFRAME.registerComponent('vr-investigation-controller', {
+      init: function() {
+        const el = this.el;
+
+        el.addEventListener('raycaster-intersection', (evt) => {
+          for (let item of evt.detail.els) {
+            const eviId = item.getAttribute('data-evidence-id');
+            if (eviId && evidenceDatabase[eviId]) {
+              state.targetedId = eviId;
+              state.targetedEl = item;
+              audio.playTargetAcquired();
+              updateDebugPanel();
+              break;
+            }
+          }
+        });
+
+        el.addEventListener('raycaster-intersection-cleared', () => {
+          if (!state.grabbedId) {
+            state.targetedId = null;
+            state.targetedEl = null;
+            updateDebugPanel();
+          }
+        });
+
+        // Trigger Pressed -> Inspect or Collect
+        el.addEventListener('triggerdown', () => {
+          audio.init();
+          const target = state.grabbedId || state.targetedId;
+          if (target) {
+            if (!evidenceDatabase[target].collected) {
+              collectEvidence(target);
+            } else {
+              openInspection(target);
+            }
+          }
+        });
+
+        // Grip Pressed -> Grab or Release
+        el.addEventListener('gripdown', () => {
+          audio.init();
+          if (state.grabbedId) {
+            releaseEvidence(true);
+          } else if (state.targetedId && state.targetedEl) {
+            grabEvidence(state.targetedId, state.targetedEl);
+          }
+        });
+      }
+    });
+
+    // Initialize UI on page load
     window.addEventListener('DOMContentLoaded', () => {
-      createProceduralTextures();
+      // Connect HTML button clicks explicitly
+      document.getElementById('btn-open-case').addEventListener('click', toggleCaseModal);
+      document.getElementById('btn-open-inventory').addEventListener('click', toggleInventoryModal);
+      
+      document.getElementById('case-modal-close').addEventListener('click', closeAllModals);
+      document.getElementById('inv-modal-close').addEventListener('click', closeAllModals);
+      document.getElementById('inspect-modal-close').addEventListener('click', closeAllModals);
+      document.getElementById('inspect-btn-close-footer').addEventListener('click', closeAllModals);
+      document.getElementById('victory-modal-close').addEventListener('click', closeAllModals);
+
+      document.getElementById('inspect-btn-collect').addEventListener('click', () => {
+        if (state.inspectedId) {
+          collectEvidence(state.inspectedId);
+        }
+      });
+
+      document.getElementById('inspect-btn-grab').addEventListener('click', () => {
+        if (state.inspectedId) {
+          const el = document.querySelector(`[data-evidence-id="${state.inspectedId}"]`);
+          if (el) grabEvidence(state.inspectedId, el);
+          closeAllModals();
+        }
+      });
+
+      updateDebugPanel();
+      renderCaseFile();
+      renderInventory();
     });
   </script>
+</head>
 
+<body>
+  <!-- Permanent Center Screen Crosshair -->
+  <div id="crosshair-container">
+    <div id="crosshair-ring"></div>
+    <div id="crosshair">
+      <div id="crosshair-dot"></div>
+    </div>
+  </div>
+
+  <!-- Notification Toast Banner -->
+  <div id="action-toast">✓ EVIDENCE COLLECTED</div>
+
+  <!-- Holding Evidence Floating Banner -->
+  <div id="holding-banner">HOLDING EVIDENCE</div>
+
+  <!-- ================================================================
+       FIXED TOP NAVIGATION (CASE & INVENTORY BUTTONS)
+       ================================================================ -->
+  <div class="top-fixed-nav">
+    <div class="top-nav-left">
+      <div class="case-title-badge">
+        <h1>CASE #07: THE SILENT ROOM</h1>
+        <p>CRIME SCENE INVESTIGATION // LAPTOP MOUSE & KEYBOARD</p>
+      </div>
+    </div>
+
+    <div class="top-nav-right">
+      <!-- Fixed Interactive Case Button -->
+      <button id="btn-open-case" class="btn-nav-action gold-theme">
+        <span>📁 CASE FILE</span>
+      </button>
+
+      <!-- Fixed Interactive Inventory Button -->
+      <button id="btn-open-inventory" class="btn-nav-action">
+        <span>📦 INVENTORY</span>
+      </button>
+
+      <!-- Live Stat Counter Pill -->
+      <div class="stat-counter-pill">
+        <span class="label">EVIDENCE</span>
+        <span class="val" id="top-collected-counter">0 / 8</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       CENTER-BOTTOM DYNAMIC TARGETING HUD
+       ================================================================ -->
+  <div id="target-hud">
+    <div class="hud-title-line">INVESTIGATION SENSOR TARGET</div>
+    <div class="hud-target-name" id="hud-target-name">Nothing</div>
+    <div class="hud-actions">
+      <span class="action-chip"><span class="chip-key gold">CLICK</span> Grab</span>
+      <span class="action-chip"><span class="chip-key">E</span> Inspect</span>
+      <span class="action-chip"><span class="chip-key green">C</span> Collect</span>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       BOTTOM FIXED BAR: KEYBOARD GUIDE & DESKTOP DEBUG PANEL
+       ================================================================ -->
+  <div class="bottom-fixed-bar">
+    <!-- Quick Desktop Guide -->
+    <div class="guide-strip">
+      <div class="guide-node"><span class="kbd-tag">MOUSE</span> Look</div>
+      <div class="guide-node"><span class="kbd-tag">L-CLICK</span> Grab</div>
+      <div class="guide-node"><span class="kbd-tag">WASD</span> Walk</div>
+      <div class="guide-node"><span class="kbd-tag">E</span> Inspect</div>
+      <div class="guide-node"><span class="kbd-tag">C</span> Collect</div>
+      <div class="guide-node"><span class="kbd-tag">G</span> Release</div>
+      <div class="guide-node"><span class="kbd-tag">TAB</span> Case</div>
+      <div class="guide-node"><span class="kbd-tag">I</span> Inventory</div>
+    </div>
+
+    <!-- Live Desktop Debug Panel (CRITICAL REQUIREMENT) -->
+    <div id="debug-panel">
+      <div class="dbg-title">
+        <span>FORENSIC DEBUG</span>
+        <span style="color:var(--success);">DESKTOP MODE: ON</span>
+      </div>
+      <div>Target: <span class="val" id="dbg-target">NONE</span></div>
+      <div>Grabbed: <span class="val" id="dbg-grabbed">NO</span></div>
+      <div>Evidence ID: <span class="val" id="dbg-evi-id">NONE</span></div>
+      <div>Collected: <span class="val" id="dbg-collected">0 / 8</span></div>
+      <div>Last Action: <span class="val" id="dbg-action">SIMULATION READY</span></div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL 1: CASE FILE DOSSIER (TAB KEY OR CASE BUTTON)
+       ================================================================ -->
+  <div id="case-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h2>CASE FILE: THE SILENT ROOM</h2>
+        <button id="case-modal-close" class="btn-close-x">✕</button>
+      </div>
+      <div class="modal-content-area">
+        <div style="margin-bottom: 14px; border-bottom: 1px dashed rgba(255,255,255,0.15); padding-bottom: 10px;">
+          <h3 style="margin:0 0 4px; font-family:var(--hud-font); color:var(--accent); font-size:17px;">CRIME REPORT #CR-9042</h3>
+          <p style="margin:0; font-size:12px; color:var(--text-dim); line-height:1.5;">
+            Victim Dr. Marcus Vance discovered in his penthouse office. 
+            Aim with your mouse, left-click to grab evidence, press E to inspect, and collect all 8 crucial items.
+          </p>
+        </div>
+
+        <div class="case-subhead">INVESTIGATION OBJECTIVES</div>
+        <ul class="obj-container">
+          <li id="obj-1" class="obj-item-box">
+            <span class="obj-mark">☐</span>
+            <span>Collect your first piece of evidence [C]</span>
+          </li>
+          <li id="obj-2" class="obj-item-box">
+            <span class="obj-mark">☐</span>
+            <span>Recover all digital evidence (Phone & USB Drive)</span>
+          </li>
+          <li id="obj-3" class="obj-item-box">
+            <span class="obj-mark">☐</span>
+            <span>Secure the murder weapon & chemical neurotoxin</span>
+          </li>
+          <li id="obj-4" class="obj-item-box">
+            <span class="obj-mark">☐</span>
+            <span>Collect all 8 evidence items & solve the case</span>
+          </li>
+        </ul>
+
+        <div class="case-subhead">EVIDENCE DATABASE STATUS (<span id="case-collected-stat">0 / 8</span>)</div>
+        <div class="case-evi-list" id="case-evidence-grid"></div>
+
+        <div class="case-subhead">INVESTIGATION PROGRESS (<span id="case-prog-pct" style="color:var(--accent);">0%</span>)</div>
+        <div class="bar-wrapper">
+          <div id="case-prog-bar" class="bar-fill"></div>
+        </div>
+      </div>
+      <div class="modal-bottom">
+        <span style="font-family:var(--mono); font-size:11px; color:var(--text-dim);">Press [TAB] or [ESC] to toggle Case File</span>
+        <button class="btn-primary-action" onclick="closeAllModals()">RESUME INVESTIGATION</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL 2: EVIDENCE INVENTORY (I KEY OR INVENTORY BUTTON)
+       ================================================================ -->
+  <div id="inventory-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h2>SECURED EVIDENCE INVENTORY</h2>
+        <button id="inv-modal-close" class="btn-close-x">✕</button>
+      </div>
+      <div class="modal-content-area">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">
+          <span style="font-family:var(--hud-font); font-size:12px; color:var(--text-dim);">CATALOGUED ARTIFACTS</span>
+          <span style="font-family:var(--mono); font-size:14px; color:var(--success); font-weight:700;" id="inv-counter-display">0 / 8</span>
+        </div>
+        <div class="inv-list-stack" id="inventory-stack-container"></div>
+      </div>
+      <div class="modal-bottom">
+        <span style="font-family:var(--mono); font-size:11px; color:var(--text-dim);">Press [I] or [ESC] to Close</span>
+        <button class="btn-primary-action" onclick="closeAllModals()">CLOSE INVENTORY</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL 3: EVIDENCE INSPECTION PANEL (E KEY)
+       ================================================================ -->
+  <div id="inspect-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-top">
+        <h2>FORENSIC EVIDENCE ANALYSIS</h2>
+        <button id="inspect-modal-close" class="btn-close-x">✕</button>
+      </div>
+      <div class="modal-content-area" id="inspect-card-body">
+        <!-- Injected via openInspection() -->
+      </div>
+      <div class="modal-bottom">
+        <div style="display:flex; gap:10px;">
+          <button id="inspect-btn-grab" class="btn-secondary-action">GRAB OBJECT [G]</button>
+          <button id="inspect-btn-collect" class="btn-collect-hero">COLLECT EVIDENCE [C]</button>
+        </div>
+        <button id="inspect-btn-close-footer" class="btn-secondary-action">CLOSE [ESC]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       MODAL 4: CASE SOLVED VICTORY PANEL
+       ================================================================ -->
+  <div id="victory-modal" class="modal-backdrop">
+    <div class="modal-card" style="border-color:var(--accent); box-shadow:0 0 50px var(--accent-glow);">
+      <div class="modal-top" style="background:rgba(255,215,0,0.15); border-color:var(--accent);">
+        <h2 style="color:var(--accent);">★ CASE SOLVED: THE SILENT ROOM</h2>
+        <button id="victory-modal-close" class="btn-close-x">✕</button>
+      </div>
+      <div class="modal-content-area" style="text-align:center; padding:30px 20px;">
+        <div style="font-size:48px; margin-bottom:12px;">🏆</div>
+        <h3 style="font-family:var(--hud-font); color:#ffffff; font-size:22px; margin:0 0 10px;">ALL 8 PIECES OF EVIDENCE SECURED</h3>
+        <p style="color:#cbd5e1; font-size:14px; line-height:1.6; max-width:500px; margin:0 auto 20px;">
+          Dr. Marcus Vance's assassination has been solved. The synthetic neurotoxin vial (E08), bloodied tactical knife (E05), and encrypted syndicate ledger (E06) have been securely catalogued!
+        </p>
+        <div style="background:rgba(0,255,136,0.1); border:1.5px solid var(--success); border-radius:8px; padding:12px 20px; display:inline-block; font-family:var(--hud-font); color:var(--success); font-size:15px;">
+          INVESTIGATION SCORE: 100% PERFECT
+        </div>
+      </div>
+      <div class="modal-bottom" style="justify-content:center;">
+        <button class="btn-primary-action" onclick="closeAllModals()">CONTINUE EXPLORING</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       A-FRAME 3D CRIME SCENE
+       ================================================================ -->
+  <a-scene 
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true"
+    vr-mode-ui="enabled: true"
+    loading-screen="dotsColor: #00f0ff; backgroundColor: #03060a"
+    desktop-investigation-manager>
+
+    <!-- LIGHTING RIG (Moody Noir Penthouse) -->
+    <a-entity light="type: ambient; color: #1e293b; intensity: 0.85"></a-entity>
+    
+    <!-- Central Ceiling Pendant Light -->
+    <a-entity light="type: point; color: #fff1d6; intensity: 1.8; distance: 18; decay: 1.5" position="0 3.8 0"></a-entity>
+    
+    <!-- Workstation Desk Blue Accent -->
+    <a-entity light="type: point; color: #00f0ff; intensity: 1.2; distance: 8" position="4.2 1.8 -4.2"></a-entity>
+    
+    <!-- Fireplace Warm Amber Glow -->
+    <a-entity light="type: point; color: #ff7700; intensity: 1.5; distance: 7" position="0 1.2 -6.2"></a-entity>
+
+    <!-- PENTHOUSE ROOM ARCHITECTURE -->
+    <!-- Floor -->
+    <a-plane position="0 0 0" rotation="-90 0 0" width="14" height="14" material="color: #0f172a; roughness: 0.4; metalness: 0.2"></a-plane>
+    <!-- Forensic Rug -->
+    <a-plane position="0 0.01 0" rotation="-90 0 0" width="8" height="8" material="color: #1e293b; roughness: 0.8"></a-plane>
+    <a-ring position="0 0.02 0" rotation="-90 0 0" radius-inner="3.8" radius-outer="3.9" material="color: #334155; roughness: 0.5"></a-ring>
+
+    <!-- Ceiling -->
+    <a-plane position="0 4.2 0" rotation="90 0 0" width="14" height="14" material="color: #090d16"></a-plane>
+
+    <!-- Walls -->
+    <a-plane position="0 2.1 -7" rotation="0 0 0" width="14" height="4.2" material="color: #131b2e"></a-plane>
+    <a-plane position="0 2.1 7" rotation="180 0 0" width="14" height="4.2" material="color: #131b2e"></a-plane>
+    <a-plane position="7 2.1 0" rotation="0 -90 0" width="14" height="4.2" material="color: #0e1524"></a-plane>
+    <a-plane position="-7 2.1 0" rotation="0 90 0" width="14" height="4.2" material="color: #0e1524"></a-plane>
+
+    <!-- Police Tape at Entrance -->
+    <a-box position="0 1.1 6.8" width="5.5" height="0.12" depth="0.02" material="color: #eab308; roughness: 0.5" rotation="0 0 -4"></a-box>
+    <a-box position="0 0.7 6.8" width="5.5" height="0.12" depth="0.02" material="color: #eab308; roughness: 0.5" rotation="0 0 3"></a-box>
+
+    <!-- Chalk Outline & Blood Spatters -->
+    <a-entity position="0 0.02 -0.8" rotation="-90 0 25">
+      <a-ring radius-inner="0.18" radius-outer="0.22" material="color: #ffffff; opacity: 0.85"></a-ring>
+      <a-plane position="0 -0.55 0" width="0.45" height="0.8" material="color: #ffffff; opacity: 0.2; wireframe: true"></a-plane>
+      <a-plane position="-0.4 -0.35 0" width="0.15" height="0.6" rotation="0 0 -35" material="color: #ffffff; opacity: 0.2; wireframe: true"></a-plane>
+      <a-plane position="0.4 -0.45 0" width="0.15" height="0.6" rotation="0 0 45" material="color: #ffffff; opacity: 0.2; wireframe: true"></a-plane>
+      <a-plane position="-0.2 -1.25 0" width="0.18" height="0.8" rotation="0 0 -15" material="color: #ffffff; opacity: 0.2; wireframe: true"></a-plane>
+      <a-plane position="0.25 -1.2 0" width="0.18" height="0.75" rotation="0 0 20" material="color: #ffffff; opacity: 0.2; wireframe: true"></a-plane>
+    </a-entity>
+    
+    <a-circle position="0.3 0.025 -0.6" rotation="-90 0 0" radius="0.45" material="color: #5c0612; roughness: 0.1; opacity: 0.88"></a-circle>
+    <a-circle position="-0.2 0.025 -0.9" rotation="-90 0 0" radius="0.25" material="color: #4a030c; roughness: 0.1; opacity: 0.85"></a-circle>
+
+    <!-- FURNITURE -->
+    <!-- Coffee Table & Sofa -->
+    <a-box position="0 0.35 1.5" width="2.2" height="0.1" depth="1.2" material="color: #1e293b; roughness: 0.3; metalness: 0.7"></a-box>
+    <a-cylinder position="-0.9 0.17 1.0" radius="0.04" height="0.35" material="color: #475569"></a-cylinder>
+    <a-cylinder position="0.9 0.17 1.0" radius="0.04" height="0.35" material="color: #475569"></a-cylinder>
+    <a-cylinder position="-0.9 0.17 2.0" radius="0.04" height="0.35" material="color: #475569"></a-cylinder>
+    <a-cylinder position="0.9 0.17 2.0" radius="0.04" height="0.35" material="color: #475569"></a-cylinder>
+
+    <a-box position="0 0.5 2.8" width="3.2" height="0.6" depth="1.0" material="color: #111827; roughness: 0.9"></a-box>
+    <a-box position="0 0.9 3.2" width="3.2" height="0.8" depth="0.3" material="color: #1f2937; roughness: 0.9"></a-box>
+
+    <!-- Fireplace & Mantel (North) -->
+    <a-box position="0 1.2 -6.6" width="3.6" height="2.4" depth="0.8" material="color: #1e293b; roughness: 0.8"></a-box>
+    <a-box position="0 0.6 -6.3" width="1.8" height="1.2" depth="0.4" material="color: #05070c"></a-box>
+    <a-box position="0 2.4 -6.3" width="4.0" height="0.15" depth="0.6" material="color: #334155; roughness: 0.4"></a-box>
+
+    <!-- Workstation Desk & PC (East) -->
+    <a-box position="4.5 0.75 -4.5" width="2.4" height="0.1" depth="1.4" material="color: #0f172a; roughness: 0.4; metalness: 0.5"></a-box>
+    <a-box position="3.4 0.37 -4.5" width="0.1" height="0.75" depth="1.3" material="color: #334155"></a-box>
+    <a-box position="5.6 0.37 -4.5" width="0.1" height="0.75" depth="1.3" material="color: #334155"></a-box>
+    <a-box position="4.2 1.25 -4.8" width="1.0" height="0.6" depth="0.05" material="color: #000; roughness: 0.2" rotation="0 15 0">
+      <a-plane position="0 0 0.03" width="0.95" height="0.55" material="color: #00f0ff; emissive: #00f0ff; emissiveIntensity: 0.4"></a-plane>
+    </a-box>
+
+    <!-- TV Stand (East) -->
+    <a-box position="5.5 0.4 0" width="1.2" height="0.8" depth="3.2" material="color: #1e293b; roughness: 0.6"></a-box>
+    <a-box position="5.8 1.8 0" width="0.1" height="1.6" depth="2.8" material="color: #000000; roughness: 0.1"></a-box>
+
+    <!-- Bookshelf (West) -->
+    <a-box position="-6.4 2.0 -3.5" width="1.0" height="3.8" depth="2.8" material="color: #271c12; roughness: 0.7"></a-box>
+    <a-box position="-6.0 1.2 -3.5" width="0.8" height="0.05" depth="2.6" material="color: #3e2d1d"></a-box>
+    <a-box position="-6.0 2.0 -3.5" width="0.8" height="0.05" depth="2.6" material="color: #3e2d1d"></a-box>
+
+    <!-- Bar Counter (West) -->
+    <a-box position="-5.2 0.9 2.5" width="1.4" height="1.8" depth="3.0" material="color: #1e293b; roughness: 0.3; metalness: 0.4"></a-box>
+
+    <!-- Lab Cart (West-North) -->
+    <a-box position="-3.5 0.8 -5.2" width="1.2" height="0.05" depth="0.8" material="color: #94a3b8; metalness: 0.9; roughness: 0.2"></a-box>
+    <a-box position="-3.5 0.3 -5.2" width="1.2" height="0.05" depth="0.8" material="color: #94a3b8; metalness: 0.9; roughness: 0.2"></a-box>
+    <a-cylinder position="-4.0 0.45 -5.5" radius="0.03" height="0.9" material="color: #64748b"></a-cylinder>
+    <a-cylinder position="-3.0 0.45 -5.5" radius="0.03" height="0.9" material="color: #64748b"></a-cylinder>
+
+    <!-- EVIDENCE MARKER CONES (#1 to #8) -->
+    <a-entity position="0.35 0.4 1.2">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="1" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+    <a-entity position="4.6 0.8 -4.0">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="2" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+    <a-entity position="-4.3 0.07 1.6">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="3" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+    <a-entity position="-0.7 2.47 -6.2">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="4" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+    <a-entity position="-5.6 0.07 -4.6">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="5" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+    <a-entity position="5.1 0.07 0.8">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="6" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+    <a-entity position="0.8 0.07 -1.2">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="7" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+    <a-entity position="-3.1 0.87 -5.4">
+      <a-cone radius-bottom="0.08" radius-top="0.01" height="0.14" material="color: #eab308"></a-cone>
+      <a-text value="8" position="0 0.05 0.05" scale="0.2 0.2 0.2" color="#000" align="center"></a-text>
+    </a-entity>
+
+    <!-- ================================================================
+       EVIDENCE OBJECTS (8 ITEMS)
+       Tag: class="evidence grabbable" & data-evidence-id="EXX"
+       ================================================================ -->
+
+    <!-- E01: Suspicious Brass Key -->
+    <a-entity 
+      id="evidence-key"
+      class="evidence grabbable"
+      data-evidence-id="E01"
+      position="0.1 0.43 1.4"
+      rotation="0 45 0">
+      <a-cylinder radius="0.018" height="0.18" rotation="90 0 0" material="color: #ffd700; metalness: 0.9; roughness: 0.2"></a-cylinder>
+      <a-torus radius="0.04" radius-tubular="0.012" position="0 0 0.09" material="color: #ffd700; metalness: 0.9; roughness: 0.2"></a-torus>
+      <a-box position="0.02 0 -0.07" width="0.03" height="0.01" depth="0.03" material="color: #ffd700; metalness: 0.9"></a-box>
+    </a-entity>
+
+    <!-- E02: Burner Mobile Phone -->
+    <a-entity 
+      id="evidence-phone"
+      class="evidence grabbable"
+      data-evidence-id="E02"
+      position="4.3 0.83 -4.2"
+      rotation="-90 25 0">
+      <a-box width="0.12" height="0.22" depth="0.016" material="color: #111827; metalness: 0.8; roughness: 0.2"></a-box>
+      <a-plane position="0 0 0.009" width="0.1" height="0.18" material="color: #38bdf8; emissive: #0284c7; emissiveIntensity: 0.6"></a-plane>
+    </a-entity>
+
+    <!-- E03: Shattered Crystal Glass -->
+    <a-entity 
+      id="evidence-glass"
+      class="evidence grabbable"
+      data-evidence-id="E03"
+      position="-4.6 0.1 1.8"
+      rotation="0 60 70">
+      <a-cylinder radius="0.06" height="0.12" material="color: #e0f2fe; opacity: 0.75; transparent: true; roughness: 0.1; metalness: 0.3"></a-cylinder>
+      <a-cone position="0.08 -0.04 0.04" radius-bottom="0.04" height="0.06" rotation="45 10 30" material="color: #e0f2fe; opacity: 0.8; transparent: true"></a-cone>
+    </a-entity>
+
+    <!-- E04: Torn Ransom Note -->
+    <a-entity 
+      id="evidence-note"
+      class="evidence grabbable"
+      data-evidence-id="E04"
+      position="-0.3 2.5 -6.2"
+      rotation="-90 0 -10">
+      <a-plane width="0.22" height="0.15" material="color: #fef08a; roughness: 0.9; side: double"></a-plane>
+      <a-box position="-0.1 0 0.002" width="0.03" height="0.15" depth="0.002" material="color: #262626"></a-box>
+    </a-entity>
+
+    <!-- E05: Bloody Forensic Knife -->
+    <a-entity 
+      id="evidence-knife"
+      class="evidence grabbable"
+      data-evidence-id="E05"
+      position="-5.8 0.1 -4.2"
+      rotation="0 135 90">
+      <a-box position="0 0.08 0" width="0.03" height="0.16" depth="0.006" material="color: #cbd5e1; metalness: 0.9; roughness: 0.2"></a-box>
+      <a-box position="0 0.1 0.004" width="0.02" height="0.1" depth="0.004" material="color: #7f1d1d; roughness: 0.5"></a-box>
+      <a-box position="0 -0.06 0" width="0.036" height="0.12" depth="0.018" material="color: #1e293b; roughness: 0.8"></a-box>
+    </a-entity>
+
+    <!-- E06: Encrypted USB Flash Drive -->
+    <a-entity 
+      id="evidence-usb"
+      class="evidence grabbable"
+      data-evidence-id="E06"
+      position="4.8 0.1 0.5"
+      rotation="0 -30 0">
+      <a-box width="0.05" height="0.02" depth="0.12" material="color: #0284c7; metalness: 0.8; roughness: 0.3"></a-box>
+      <a-box position="0 0 -0.07" width="0.035" height="0.012" depth="0.03" material="color: #e2e8f0; metalness: 0.95"></a-box>
+      <a-sphere position="0 0.012 0.04" radius="0.006" material="color: #22c55e; emissive: #22c55e; emissiveIntensity: 1"></a-sphere>
+    </a-entity>
+
+    <!-- E07: Victim's Leather Wallet -->
+    <a-entity 
+      id="evidence-wallet"
+      class="evidence grabbable"
+      data-evidence-id="E07"
+      position="0.6 0.03 -1.0"
+      rotation="-90 0 40">
+      <a-box width="0.16" height="0.11" depth="0.025" material="color: #2b1d0c; roughness: 0.8"></a-box>
+      <a-plane position="0.02 0.03 0.015" width="0.08" height="0.05" material="color: #ffffff"></a-plane>
+    </a-entity>
+
+    <!-- E08: Chemical Flask with Residue -->
+    <a-entity 
+      id="evidence-flask"
+      class="evidence grabbable"
+      data-evidence-id="E08"
+      position="-3.3 0.95 -5.2"
+      rotation="0 0 0">
+      <a-sphere radius="0.07" material="color: #ecfeff; opacity: 0.7; transparent: true; roughness: 0.1"></a-sphere>
+      <a-cylinder position="0 0.08 0" radius="0.025" height="0.08" material="color: #ecfeff; opacity: 0.7; transparent: true"></a-cylinder>
+      <a-cylinder position="0 0.13 0" radius="0.028" height="0.025" material="color: #334155"></a-cylinder>
+      <a-sphere position="0 -0.02 0" radius="0.05" material="color: #c084fc; emissive: #a855f7; emissiveIntensity: 0.8; opacity: 0.85"></a-sphere>
+    </a-entity>
+
+
+    <!-- ================================================================
+       PLAYER CAMERA RIG (MOUSE LOOK + WASD & WEBXR CONTROLLERS)
+       ================================================================ -->
+    <a-entity id="cameraRig" position="0 0 4.5">
+      <!-- Desktop Camera with built-in look-controls & wasd-controls -->
+      <a-entity 
+        id="camera" 
+        camera="active: true" 
+        look-controls="pointerLockEnabled: false" 
+        wasd-controls="acceleration: 45; fly: false"
+        position="0 1.6 0">
+      </a-entity>
+
+      <!-- WebXR Meta Quest 3S Controllers -->
+      <a-entity 
+        id="leftController"
+        oculus-touch-controls="hand: left"
+        vr-investigation-controller
+        raycaster="objects: .evidence, .grabbable; far: 4.5; showLine: true; lineColor: #00f0ff">
+      </a-entity>
+
+      <a-entity 
+        id="rightController"
+        oculus-touch-controls="hand: right"
+        vr-investigation-controller
+        raycaster="objects: .evidence, .grabbable; far: 4.5; showLine: true; lineColor: #ffd700">
+      </a-entity>
+    </a-entity>
+
+  </a-scene>
 </body>
 </html>
