@@ -203,8 +203,9 @@ The project is an ongoing WebXR development project focused on improving:
 ### 🔍 Explore. Investigate. Collect the Evidence. Solve the Case.
 
 **CSI: The Silent Room — A WebXR Forensic Investigation Experience**
-<img width="1888" height="890" alt="Screenshot 2026-09-23 203335" src="https://github.com/user-attachments/assets/d6b5d60c-a12b-4d9c-aff2-544d6f07ad83" />
-<img width="1891" height="877" alt="Screenshot 2026-09-23 203250" src="https://github.com/user-attachments/assets/e80a60cf-c33a-47d0-9122-4246e37908c3" />
-<img width="1879" height="875" alt="Screenshot 2026-09-23 203101" src="https://github.com/user-attachments/assets/8c1ecbbc-e685-4aa7-8ab6-589dbf929570" />
-<img width="1873" height="879" alt="Screenshot 2026-09-23 203021" src="https://github.com/user-attachments/assets/dcb54c77-bb71-48fe-9c45-6bb42a113659" />
-<img width="1896" height="894" alt="Screenshot 2026-09-23 202918" src="https://github.com/user-attachments/assets/2f4e53d4-9627-4714-829b-8777166e35ce" />
+<img width="1896" height="894" alt="Screenshot 2026-09-23 202918" src="https://github.com/user-attachments/assets/75928792-d2d8-453b-b109-c1c33e61ea14" />
+<img width="1873" height="879" alt="Screenshot 2026-09-23 203021" src="https://github.com/user-attachments/assets/8fce617a-23e1-4470-8649-12fe7a0b54ee" />
+<img width="1879" height="875" alt="Screenshot 2026-09-23 203101" src="https://github.com/user-attachments/assets/c3578350-956b-45c9-9ca2-27de53d36be2" />
+<img width="1891" height="877" alt="Screenshot 2026-09-23 203250" src="https://github.com/user-attachments/assets/4d2207ab-2507-4cd3-bbaa-f294b11100e5" />
+<img width="1888" height="890" alt="Screenshot 2026-09-23 203335" src="https://github.com/user-attachments/assets/d2df476a-58f7-4331-adbc-e1a2cfdf9be2" />
+
